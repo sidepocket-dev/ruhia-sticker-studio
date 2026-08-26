@@ -23,6 +23,7 @@ import {
   status,
 } from '../state/sheet-store.js';
 import { CountChooser } from './components/CountChooser.js';
+import { ProjectPanel } from './components/ProjectPanel.js';
 import { IdeaPromptBox } from './components/IdeaPromptBox.js';
 import { PlanList } from './components/PlanList.js';
 import { PresetChooser } from './components/PresetChooser.js';
@@ -96,6 +97,11 @@ export function App() {
 
         {loaded > 0 && <Candidates />}
         {loaded > 0 && <Finishing />}
+
+        <section class="panel">
+          <h2>作業内容の保存</h2>
+          <ProjectPanel />
+        </section>
       </main>
 
       <footer class="site-footer">

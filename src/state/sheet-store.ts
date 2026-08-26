@@ -2,6 +2,8 @@ import { computed, signal } from '@preact/signals';
 import { IMAGE_CONFIG } from '../config/app-config.js';
 import { toAlphaMask, transparentRatio } from '../core/image/alpha-mask.js';
 import type { DetectFailure } from '../core/image/detect.js';
+import { toBlob } from '../core/project.js';
+import type { StoredImage, StoredSheet } from '../core/project.js';
 import type { DetectionStrategy, StickerRegion } from '../core/image/types.js';
 import { ACCEPTED_TYPES, cropToObjectUrl, loadSheet, readPixels } from '../platform/decode.js';
 import type { LoadedSheet } from '../platform/decode.js';
@@ -46,10 +48,16 @@ export const candidates = computed<ExtractedSticker[]>(() =>
 );
 
 const bitmaps = new Map<number, LoadedSheet>();
+/** 保存のために、読み込んだ画像そのものも持っておく（PRODUCT_SPEC.md §51）。 */
+const images = new Map<number, StoredImage>();
 let nextSheetId = 1;
 
 export function getSheetSource(sheetId: number): LoadedSheet | undefined {
   return bitmaps.get(sheetId);
+}
+
+export function getSheetImage(sheetId: number): StoredImage | undefined {
+  return images.get(sheetId);
 }
 
 /** 複数のシートをまとめて読み込む。1枚ずつ順に処理してメモリを抑える。 */
@@ -126,6 +134,7 @@ async function importOne(file: File): Promise<ImportResult> {
 
     const sheetId = nextSheetId++;
     bitmaps.set(sheetId, source);
+    images.set(sheetId, { bytes: await file.arrayBuffer(), type: file.type });
 
     const stickers: ExtractedSticker[] = [];
     for (const region of outcome.result.regions) {
@@ -174,6 +183,7 @@ export function removeSheet(sheetId: number): void {
 
   bitmaps.get(sheetId)?.bitmap.close();
   bitmaps.delete(sheetId);
+  images.delete(sheetId);
   sheets.value = sheets.value.filter((sheet) => sheet.id !== sheetId);
   if (sheets.value.length === 0) status.value = 'empty';
 }
@@ -192,6 +202,52 @@ export function dismissProblems(): void {
   problems.value = [];
 }
 
+/**
+ * 保存しておいたシートを復元する。
+ *
+ * 抽出はやり直さない。前回と同じ結果になるとは限らず、
+ * ユーザーが直した内容も失われるため、保存した範囲をそのまま使う。
+ */
+export async function restoreSheets(stored: StoredSheet[]): Promise<void> {
+  resetAll();
+  status.value = 'working';
+  progressMessage.value = '前回の続きを読み込んでいます…';
+
+  const restored: SheetEntry[] = [];
+  for (const entry of stored) {
+    try {
+      const bitmap = await createImageBitmap(toBlob(entry.image));
+      const source: LoadedSheet = {
+        name: entry.name,
+        bitmap,
+        width: bitmap.width,
+        height: bitmap.height,
+      };
+      bitmaps.set(entry.id, source);
+      images.set(entry.id, entry.image);
+      nextSheetId = Math.max(nextSheetId, entry.id + 1);
+
+      restored.push({
+        id: entry.id,
+        name: entry.name,
+        strategy: entry.strategy,
+        stickers: entry.regions.map((region) => ({
+          id: `${entry.id}-${region.cellIndex}`,
+          sheetId: entry.id,
+          region,
+          previewUrl: cropToObjectUrl(source, region.bounds, PREVIEW_MAX_SIDE, region.excludeRects ?? []),
+        })),
+      });
+    } catch (cause) {
+      console.error('[RUHiA Sticker Studio] シートを復元できませんでした', cause);
+    }
+  }
+
+  sheets.value = restored;
+  progressMessage.value = '';
+  status.value = restored.length > 0 ? 'ready' : 'empty';
+}
+
 /** すべて捨てて最初の状態へ戻す。 */
 export function resetAll(): void {
   for (const sheet of sheets.value) {
@@ -199,6 +255,7 @@ export function resetAll(): void {
     bitmaps.get(sheet.id)?.bitmap.close();
   }
   bitmaps.clear();
+  images.clear();
   sheets.value = [];
   problems.value = [];
   progressMessage.value = '';
