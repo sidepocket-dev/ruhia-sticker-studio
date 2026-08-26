@@ -1,5 +1,5 @@
 import DetectWorker from './detect.worker.ts?worker&inline';
-import { detectAlignedSheet } from '../../core/image/detect.js';
+import { detectStickers } from '../../core/image/detect.js';
 import type { DetectOutcome } from '../../core/image/detect.js';
 import type { PixelBuffer } from '../../core/image/types.js';
 import type { DetectRequest, DetectResponse } from './detect.worker.js';
@@ -26,7 +26,7 @@ function getWorker(): Worker {
  * 結果は変わらない。動かないより、少し待たせてでも動くほうを選ぶ。
  */
 export async function detectSheet(buffer: PixelBuffer): Promise<DetectOutcome> {
-  if (!workerUsable) return detectAlignedSheet(buffer);
+  if (!workerUsable) return detectStickers(buffer);
 
   try {
     return await detectInWorker(buffer);
@@ -34,7 +34,7 @@ export async function detectSheet(buffer: PixelBuffer): Promise<DetectOutcome> {
     console.warn('[RUHiA Sticker Studio] 別スレッドを使えないため、この画面で処理します', cause);
     workerUsable = false;
     worker = null;
-    return detectAlignedSheet(buffer);
+    return detectStickers(buffer);
   }
 }
 

@@ -114,3 +114,39 @@ test('スタンプの大小関係が元のシートと同じ', async ({ page }) 
   // 一番大きいものは上限まで使い切っている
   expect(Math.max(...heights)).toBe(SPEC.sticker.maxHeight);
 });
+
+/** 自由配置シート（ステッカー機能の出力）でも同じ流れが通ること。 */
+test('自由配置シートからもZIPを作れる', async ({ page }) => {
+  const errors: string[] = [];
+  page.on('pageerror', (error) => errors.push(error.message));
+
+  await page.goto('/');
+  await page.setInputFiles('input[type="file"]', resolve(process.cwd(), 'tests/fixtures/sheet-b.png'));
+  await expect(page.getByRole('heading', { name: '9個のスタンプを見つけました' })).toBeVisible({
+    timeout: 15_000,
+  });
+  await expect(page.locator('.sticker-card__warning')).toHaveCount(0);
+
+  const [download] = await Promise.all([
+    page.waitForEvent('download'),
+    page.getByRole('button', { name: 'LINE用データを作成' }).click(),
+  ]);
+
+  const files = unzipSync(new Uint8Array(readFileSync(await download.path())));
+  expect(Object.keys(files)).toHaveLength(TARGET + 2);
+
+  for (let i = 1; i <= TARGET; i++) {
+    const bytes = files[stickerFileName(i)];
+    expect(bytes, stickerFileName(i)).toBeDefined();
+    if (!bytes) continue;
+    const info = readPngInfo(bytes);
+    expect(info?.colorType).toBe(PNG_COLOR_TYPE_RGBA);
+    expect((info?.width ?? 1) % 2).toBe(0);
+    expect((info?.height ?? 1) % 2).toBe(0);
+    expect(info?.width ?? 0).toBeLessThanOrEqual(SPEC.sticker.maxWidth);
+    expect(info?.height ?? 0).toBeLessThanOrEqual(SPEC.sticker.maxHeight);
+    expect(bytes.byteLength).toBeLessThanOrEqual(SPEC.sticker.maxBytes);
+  }
+
+  expect(errors).toEqual([]);
+});

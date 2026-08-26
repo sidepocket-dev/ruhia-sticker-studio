@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_DETECT_OPTIONS, detectAlignedSheet } from '../../src/core/image/detect.js';
-import { addFaintHaze, addSpeckles, makeAlignedGrid, makeSheet } from '../helpers/make-sheet.js';
+import { DEFAULT_DETECT_OPTIONS, detectStickers } from '../../src/core/image/detect.js';
+import {
+  addFaintHaze,
+  addSpeckles,
+  makeAlignedGrid,
+  makeSheet,
+  makeStaggeredGrid,
+} from '../helpers/make-sheet.js';
 import { checkInvariants } from '../helpers/invariants.js';
 import { iou } from '../helpers/geometry.js';
 import type { StickerRegion } from '../../src/core/image/types.js';
@@ -21,7 +27,7 @@ function expectMatchesExpected(regions: StickerRegion[], expected: { x: number; 
 describe('整列シートの抽出', () => {
   it('均等な3 × 3 から9個を正しく取り出す', () => {
     const { buffer, expected } = makeAlignedGrid({ size: 900, margin: 40, gap: 60 });
-    const outcome = detectAlignedSheet(buffer);
+    const outcome = detectStickers(buffer);
 
     expect(outcome.ok).toBe(true);
     if (!outcome.ok) return;
@@ -44,7 +50,7 @@ describe('整列シートの抽出', () => {
         8: { dx: 10, dy: -11 },
       },
     });
-    const outcome = detectAlignedSheet(buffer);
+    const outcome = detectStickers(buffer);
 
     expect(outcome.ok).toBe(true);
     if (!outcome.ok) return;
@@ -54,7 +60,7 @@ describe('整列シートの抽出', () => {
   it('薄いドロップシャドウを内容として拾わない', () => {
     const { buffer, expected } = makeAlignedGrid({ size: 900, margin: 40, gap: 60 });
     const hazed = addFaintHaze(buffer, THRESHOLD - 1);
-    const outcome = detectAlignedSheet(hazed);
+    const outcome = detectStickers(hazed);
 
     expect(outcome.ok).toBe(true);
     if (!outcome.ok) return;
@@ -64,18 +70,18 @@ describe('整列シートの抽出', () => {
   it('透明部分の微弱なノイズを内容として拾わない', () => {
     const { buffer, expected } = makeAlignedGrid({ size: 900, margin: 40, gap: 60 });
     const speckled = addSpeckles(buffer, THRESHOLD - 8, 7);
-    const outcome = detectAlignedSheet(speckled);
+    const outcome = detectStickers(speckled);
 
     expect(outcome.ok).toBe(true);
     if (!outcome.ok) return;
     expectMatchesExpected(outcome.result.regions, expected);
   });
 
-  it('内容が隙間をまたいでいたら単純分割を使わない', () => {
+  it('隣どうしが物理的につながっていたら分けない', () => {
     const { buffer } = makeAlignedGrid({ size: 900, margin: 40, gap: 60 });
     const cell = Math.floor((900 - 80 - 120) / 3);
     const gutterStart = 40 + cell;
-    // 隙間をまたぐ帯を1本足す（文字がセル境界を越えた状態）
+    // 隙間をまたいで2個を橋渡しする帯を足す
     const crossing = makeSheet(900, 900, [
       { x: gutterStart - 5, y: 200, width: 70, height: 30 },
     ]);
@@ -83,13 +89,15 @@ describe('整列シートの抽出', () => {
       if ((crossing.data[i] ?? 0) !== 0) buffer.data[i] = crossing.data[i] ?? 0;
     }
 
-    const outcome = detectAlignedSheet(buffer);
+    // つながっている以上、どの方式でも9個には分けられない。
+    // 誤った位置で切るより、手動修正へ回すほうがよい。
+    const outcome = detectStickers(buffer);
     expect(outcome.ok).toBe(false);
     if (outcome.ok) return;
-    expect(outcome.reason).toBe('no-gutters');
+    expect(outcome.reason).toBe('too-few-components');
   });
 
-  it('空のセルがあれば単純分割を使わない', () => {
+  it('空のセルがあれば抽出しない', () => {
     const { buffer } = makeAlignedGrid({ size: 900, margin: 40, gap: 60 });
     // 中央セルを消す
     const cell = Math.floor((900 - 80 - 120) / 3);
@@ -99,23 +107,82 @@ describe('整列シートの抽出', () => {
       for (let x = x0; x < x0 + cell; x++) buffer.data[(y * 900 + x) * 4 + 3] = 0;
     }
 
-    const outcome = detectAlignedSheet(buffer);
+    const outcome = detectStickers(buffer);
     expect(outcome.ok).toBe(false);
     if (outcome.ok) return;
-    expect(outcome.reason).toBe('empty-cell');
+    expect(['empty-cell', 'too-few-components']).toContain(outcome.reason);
   });
 
-  it('隙間が無いシートは単純分割を使わない', () => {
+  it('一面が塗りつぶされたシートは抽出しない', () => {
     const buffer = makeSheet(900, 900, [{ x: 0, y: 0, width: 900, height: 900 }]);
-    const outcome = detectAlignedSheet(buffer);
+    const outcome = detectStickers(buffer);
     expect(outcome.ok).toBe(false);
+  });
+});
+
+describe('自由配置シートの抽出', () => {
+  it('隙間が縦一直線に空いていなくても9個に分ける', () => {
+    // 実測シート b と同じ構造。行ごとに横位置がずれている
+    const { buffer, expected } = makeStaggeredGrid({
+      size: 900,
+      margin: 40,
+      gap: 50,
+      rowShift: 40,
+    });
+
+    const outcome = detectStickers(buffer);
+    expect(outcome.ok).toBe(true);
+    if (!outcome.ok) return;
+
+    // 単純分割では切れないので、まとめ上げへ切り替わっているはず
+    expect(outcome.result.strategy).toBe('smart-detection');
+    expect(outcome.result.regions).toHaveLength(9);
+    expectMatchesExpected(outcome.result.regions, expected);
+  });
+
+  it('自由配置でも内容を切らず、範囲が重ならない', () => {
+    const { buffer } = makeStaggeredGrid({ size: 900, margin: 40, gap: 50, rowShift: 40 });
+    const outcome = detectStickers(buffer);
+    expect(outcome.ok).toBe(true);
+    if (!outcome.ok) return;
+
+    const report = checkInvariants(buffer, outcome.result.regions, THRESHOLD);
+    expect(report.coverage).toBeGreaterThanOrEqual(0.995);
+    expect(report.overlapArea).toBe(0);
+  });
+
+  it('離れた装飾を、いちばん近いキャラクターへまとめる', () => {
+    const { buffer } = makeStaggeredGrid({ size: 900, margin: 40, gap: 50, rowShift: 40 });
+    const cell = Math.floor((900 - 80 - 100) / 3);
+
+    // 中央のスタンプの右上へ、離れたハートを置く
+    const heartX = 40 + cell + 50 + cell + 6;
+    const heartY = 40 + cell + 50 - 6;
+    const decoration = makeSheet(900, 900, [{ x: heartX, y: heartY, width: 22, height: 22 }]);
+    for (let i = 0; i < buffer.data.length; i++) {
+      if ((decoration.data[i] ?? 0) !== 0) buffer.data[i] = decoration.data[i] ?? 0;
+    }
+
+    const outcome = detectStickers(buffer);
+    expect(outcome.ok).toBe(true);
+    if (!outcome.ok) return;
+
+    // ハートが独立したスタンプになっていない
+    expect(outcome.result.regions).toHaveLength(9);
+    const middle = outcome.result.regions.find((region) => region.cellIndex === 4);
+    expect(middle).toBeDefined();
+    if (!middle) return;
+
+    // 中央のスタンプの範囲がハートを含んでいる
+    expect(middle.contentBounds.x + middle.contentBounds.width).toBeGreaterThanOrEqual(heartX + 22);
+    expect(checkInvariants(buffer, outcome.result.regions, THRESHOLD).coverage).toBeGreaterThanOrEqual(0.995);
   });
 });
 
 describe('抽出の不変条件', () => {
   it('内容を切らず、範囲が重ならない', () => {
     const { buffer } = makeAlignedGrid({ size: 900, margin: 40, gap: 60, inset: 8 });
-    const outcome = detectAlignedSheet(buffer);
+    const outcome = detectStickers(buffer);
 
     expect(outcome.ok).toBe(true);
     if (!outcome.ok) return;
@@ -127,7 +194,7 @@ describe('抽出の不変条件', () => {
 
   it('安全余白は内容の外側にだけ付く', () => {
     const { buffer, expected } = makeAlignedGrid({ size: 900, margin: 40, gap: 60, inset: 8 });
-    const outcome = detectAlignedSheet(buffer);
+    const outcome = detectStickers(buffer);
     expect(outcome.ok).toBe(true);
     if (!outcome.ok) return;
 
@@ -146,7 +213,7 @@ describe('信頼度', () => {
   it('隙間が狭くても、正しく取れていれば低評価にしない', () => {
     // 実測フィクスチャの行の隙間は8pxしかない。それでも抽出は完全なので減点しない
     const { buffer } = makeAlignedGrid({ size: 900, margin: 40, gap: 8 });
-    const outcome = detectAlignedSheet(buffer);
+    const outcome = detectStickers(buffer);
 
     expect(outcome.ok).toBe(true);
     if (!outcome.ok) return;
@@ -158,7 +225,7 @@ describe('信頼度', () => {
   it('隙間が狭くても抽出範囲が重ならない', () => {
     // 安全余白(8px)が隙間(6px)より広い状況。セル境界で止まらないと重なる
     const { buffer } = makeAlignedGrid({ size: 900, margin: 40, gap: 6 });
-    const outcome = detectAlignedSheet(buffer);
+    const outcome = detectStickers(buffer);
 
     expect(outcome.ok).toBe(true);
     if (!outcome.ok) return;
@@ -178,7 +245,7 @@ describe('信頼度', () => {
       for (let x = x0 + 50; x < x0 + 70; x++) buffer.data[(y * 900 + x) * 4 + 3] = 250;
     }
 
-    const outcome = detectAlignedSheet(buffer);
+    const outcome = detectStickers(buffer);
     expect(outcome.ok).toBe(true);
     if (!outcome.ok) return;
 
@@ -196,7 +263,7 @@ describe('信頼度', () => {
       gap: 60,
       offsets: { 0: { dx: -40, dy: -40 } },
     });
-    const outcome = detectAlignedSheet(buffer);
+    const outcome = detectStickers(buffer);
 
     expect(outcome.ok).toBe(true);
     if (!outcome.ok) return;

@@ -93,3 +93,36 @@ export function addSpeckles(buffer: PixelBuffer, alpha: number, step: number): P
   }
   return { data, width: buffer.width, height: buffer.height };
 }
+
+/**
+ * 行ごとに横位置をずらした3 × 3。
+ *
+ * 実測した自由配置シート（sheet-b）の構造を再現する。各行の隙間の位置が
+ * ずれるため、縦一直線に空く列が存在せず、単純分割は成立しない。
+ * それでもスタンプどうしは離れているので、まとめ上げなら扱える。
+ */
+export function makeStaggeredGrid(options: GridOptions & { rowShift: number }): {
+  buffer: PixelBuffer;
+  expected: Rect[];
+} {
+  const { size, margin, gap, inset = 0, rowShift } = options;
+  const cell = Math.floor((size - margin * 2 - gap * 2) / 3);
+  const shifts = [0, rowShift, -rowShift];
+  const shapes: Shape[] = [];
+  const expected: Rect[] = [];
+
+  for (let row = 0; row < 3; row++) {
+    for (let column = 0; column < 3; column++) {
+      const rect: Rect = {
+        x: margin + column * (cell + gap) + inset + (shifts[row] ?? 0),
+        y: margin + row * (cell + gap) + inset,
+        width: cell - inset * 2,
+        height: cell - inset * 2,
+      };
+      shapes.push(rect);
+      expected.push(rect);
+    }
+  }
+
+  return { buffer: makeSheet(size, size, shapes), expected };
+}

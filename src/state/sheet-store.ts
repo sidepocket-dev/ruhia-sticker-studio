@@ -4,6 +4,7 @@ import { toAlphaMask, transparentRatio } from '../core/image/alpha-mask.js';
 import type { StickerRegion } from '../core/image/types.js';
 import { ACCEPTED_TYPES, cropToObjectUrl, loadSheet, readPixels } from '../platform/decode.js';
 import type { LoadedSheet } from '../platform/decode.js';
+import type { DetectFailure } from '../core/image/detect.js';
 import { detectSheet } from '../platform/worker/client.js';
 
 export interface ExtractedSticker {
@@ -75,12 +76,7 @@ export async function importSheet(file: File): Promise<void> {
     const outcome = await detectSheet(pixels);
 
     if (!outcome.ok) {
-      fail(
-        'スタンプの位置をうまく判定できませんでした。',
-        outcome.reason === 'empty-cell'
-          ? '9個そろっているか確認してください。空いている場所があるようです。'
-          : 'スタンプどうしが近すぎるか、重なっているようです。スタンプの間を広くあけた画像でお試しください。',
-      );
+      fail('スタンプの位置をうまく判定できませんでした。', hintFor(outcome.reason));
       return;
     }
 
@@ -100,6 +96,18 @@ export async function importSheet(file: File): Promise<void> {
     // ユーザーには平易な文言だけを見せ、原因は開発者コンソールへ残す
     console.error('[RUHiA Sticker Studio] シートの読み込みに失敗しました', cause);
     fail('画像を読み込めませんでした。', '別の画像でお試しください。');
+  }
+}
+
+/** 判定できなかった理由ごとの案内。技術用語は使わない（PRODUCT_SPEC.md §63）。 */
+function hintFor(reason: DetectFailure): string {
+  switch (reason) {
+    case 'no-content':
+      return '絵が見当たりませんでした。中身のある画像を選んでください。';
+    case 'empty-cell':
+      return '空いている場所があるようです。9個そろっているか確認してください。';
+    case 'too-few-components':
+      return 'スタンプどうしがくっついているようです。間を広くあけた画像でお試しください。';
   }
 }
 

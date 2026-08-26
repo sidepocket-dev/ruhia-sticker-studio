@@ -1,4 +1,4 @@
-import { detectAlignedSheet } from '../../core/image/detect.js';
+import { detectStickers } from '../../core/image/detect.js';
 import type { DetectOutcome } from '../../core/image/detect.js';
 import type { PixelBuffer } from '../../core/image/types.js';
 
@@ -15,6 +15,6 @@ export interface DetectResponse {
 self.onmessage = (event: MessageEvent<DetectRequest>) => {
   const { id, buffer } = event.data;
   const pixels: PixelBuffer = buffer;
-  const response: DetectResponse = { id, outcome: detectAlignedSheet(pixels) };
+  const response: DetectResponse = { id, outcome: detectStickers(pixels) };
   self.postMessage(response);
 };

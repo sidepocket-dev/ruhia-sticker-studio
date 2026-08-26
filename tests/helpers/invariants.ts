@@ -1,6 +1,6 @@
 import { countOpaqueIn, toAlphaMask } from '../../src/core/image/alpha-mask.js';
 import { intersectionArea } from '../../src/core/image/trim.js';
-import type { PixelBuffer, StickerRegion } from '../../src/core/image/types.js';
+import type { AlphaMask, PixelBuffer, Rect, StickerRegion } from '../../src/core/image/types.js';
 
 export interface InvariantReport {
   /** 抽出範囲に含まれた内容の割合 (TEST_PLAN.md §4 C1) */
@@ -36,4 +36,27 @@ export function checkInvariants(
   }
 
   return { coverage: total === 0 ? 1 : captured / total, overlapArea };
+}
+
+/**
+ * 矩形が内容にぴったり接しているか（透明な余白が残っていないか）。
+ *
+ * 上下左右それぞれの縁に不透明画素が1つ以上あることを確かめる。
+ * どれかの縁が完全に透明なら、その分だけ余白が残っている。
+ */
+export function isTightlyTrimmed(mask: AlphaMask, rect: Rect): boolean {
+  const { data, width } = mask;
+  const x1 = rect.x + rect.width - 1;
+  const y1 = rect.y + rect.height - 1;
+
+  const hasOpaqueInRow = (y: number): boolean => {
+    for (let x = rect.x; x <= x1; x++) if ((data[y * width + x] ?? 0) === 1) return true;
+    return false;
+  };
+  const hasOpaqueInColumn = (x: number): boolean => {
+    for (let y = rect.y; y <= y1; y++) if ((data[y * width + x] ?? 0) === 1) return true;
+    return false;
+  };
+
+  return hasOpaqueInRow(rect.y) && hasOpaqueInRow(y1) && hasOpaqueInColumn(rect.x) && hasOpaqueInColumn(x1);
 }

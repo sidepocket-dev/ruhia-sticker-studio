@@ -51,13 +51,17 @@ npm run check       # typecheck + test
 
 | ID | ファイル | 内容 | 期待される挙動 |
 |---|---|---|---|
-| A | `sheet-a.png` | 整列した透過3×3シート | Simple Split で成功 |
-| B | `sheet-b.png` | ChatGPTステッカー機能の自由配置シート | Simple Split が危険を検知し、Smart Detection で成功 |
-| C | `sheet-c.png` | 文字が多いシート | 文字がキャラクターと同じグループに残る |
-| D | `sheet-d.png` | 装飾が離れているシート | ハート・星が独立スタンプにならない |
-| E | `sheet-e.png` | 白フチ付きシート | 白フチが欠けない |
+| A | `sheet-a.png` | 整列した透過3×3シート。装飾（効果線・しずく）が本体から離れている | Simple Split で成功。離れた装飾がキャラクターと同じグループに残る |
+| B | `sheet-b.png` | ChatGPTステッカー機能の自由配置シート。白フチ付き、行ごとに隙間の位置が異なる | Simple Split が成立せず、Smart Detection で成功。白フチが欠けない |
+| C | `sheet-c.png` | 文字が多いシート | Simple Split で成功。文字がキャラクターと同じグループに残る |
+| D | 未取得 | 装飾が大きく離れているシート | ハート・星が独立スタンプにならない |
+| E | 未取得 | 極端なケース（重なり・影あり） | 判定できない場合に手動修正へ回る |
 
-期待値ファイル：`tests/fixtures/sheet-a.expected.json`（9個の矩形）
+Fixture A は当初の想定と異なり「離れた装飾」（Fixture D の条件）も含んでいた。
+Fixture B は白フチ付き（Fixture E の条件）を兼ねている。
+そのため D・E は当面必須ではないが、傾向の異なるシートが手に入れば追加する。
+
+期待値ファイル：`tests/fixtures/sheet-<id>.expected.json`（採用した方式と9個の矩形）
 
 **合格基準：** 各矩形の **IoU ≧ 0.9**
 

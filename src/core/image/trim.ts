@@ -60,3 +60,15 @@ export function touchesEdge(content: Rect, region: Rect): boolean {
     content.y + content.height >= region.y + region.height
   );
 }
+
+/**
+ * 2つの矩形が「離れている量」。軸ごとの隙間のうち大きいほうを返す。
+ *
+ * 重なりを避けるには、どちらか一方の軸で離れていれば足りるため、
+ * 小さいほうではなく大きいほうを使う。重なっている場合は0。
+ */
+export function rectSeparation(a: Rect, b: Rect): number {
+  const gapX = Math.max(a.x - (b.x + b.width), b.x - (a.x + a.width));
+  const gapY = Math.max(a.y - (b.y + b.height), b.y - (a.y + a.height));
+  return Math.max(0, Math.max(gapX, gapY));
+}

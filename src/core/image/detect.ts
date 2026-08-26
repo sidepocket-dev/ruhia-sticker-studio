@@ -1,16 +1,25 @@
 import { IMAGE_CONFIG } from '../../config/app-config.js';
 import { STICKERS_PER_SHEET } from '../../config/line-spec.js';
 import { toAlphaMask } from './alpha-mask.js';
+import { extractComponents } from './components.js';
 import { cellsFromGridLines, findGridLines } from './gutter-split.js';
+import { computeCellPriors, groupComponents } from './grouping.js';
 import { computeProfile } from './profile.js';
-import { contentBoundsIn, expandRect, touchesEdge } from './trim.js';
-import type { DetectionResult, PixelBuffer, Rect, StickerRegion } from './types.js';
+import {
+  contentBoundsIn,
+  expandRect,
+  intersectionArea,
+  rectSeparation,
+  touchesEdge,
+} from './trim.js';
+import type { AlphaMask, DetectionResult, PixelBuffer, Rect, StickerRegion } from './types.js';
 
 export interface DetectOptions {
   alphaThreshold: number;
   searchWindowRatio: number;
   maxContentRatio: number;
   safeMarginPx: number;
+  minComponentAreaRatio: number;
 }
 
 export const DEFAULT_DETECT_OPTIONS: DetectOptions = {
@@ -18,60 +27,70 @@ export const DEFAULT_DETECT_OPTIONS: DetectOptions = {
   searchWindowRatio: IMAGE_CONFIG.gutterSearchWindow,
   maxContentRatio: IMAGE_CONFIG.gutterMaxContentRatio,
   safeMarginPx: IMAGE_CONFIG.safeMarginPx,
+  minComponentAreaRatio: IMAGE_CONFIG.minComponentAreaRatio,
 };
 
-/** 単純分割が使えなかった理由。UIには出さず、次の手を決めるために使う。 */
-export type SimpleSplitFailure = 'no-gutters' | 'empty-cell';
+/** 抽出できなかった理由。UIには出さず、次にどうするかを決めるために使う。 */
+export type DetectFailure = 'no-content' | 'empty-cell' | 'too-few-components';
 
 export type DetectOutcome =
   | { ok: true; result: DetectionResult }
-  | { ok: false; reason: SimpleSplitFailure; totalOpaquePixels: number };
+  | { ok: false; reason: DetectFailure; totalOpaquePixels: number };
 
 /**
- * 整列シート（Type A）から9個を抽出する。
+ * シートから9個のスタンプを取り出す。
  *
- * 隙間を探して切り、各セルの内容だけをトリムする。
- * 隙間が見つからないシートは Smart Detection（Phase 3）へ回す。
- * PRODUCT_SPEC.md §11.1 / §16 / §77.4。
+ * まず単純分割（透明な隙間で切る）を試し、成立しなければ
+ * 連結領域のまとめ上げへ切り替える。ユーザーにどちらを使うかは尋ねない
+ * （PRODUCT_SPEC.md §16）。
  */
-export function detectAlignedSheet(
+export function detectStickers(
   buffer: PixelBuffer,
   options: DetectOptions = DEFAULT_DETECT_OPTIONS,
 ): DetectOutcome {
   const mask = toAlphaMask(buffer, options.alphaThreshold);
   const profile = computeProfile(mask);
-  const sheetBounds: Rect = { x: 0, y: 0, width: mask.width, height: mask.height };
 
+  const simple = trySimpleSplit(mask, profile.totalOpaque, options);
+  if (simple) {
+    return { ok: true, result: simple };
+  }
+
+  return trySmartDetection(mask, profile.totalOpaque, options);
+}
+
+/** 整列シート向け。隙間が見つからなければ null を返す。 */
+export function trySimpleSplit(
+  mask: AlphaMask,
+  totalOpaque: number,
+  options: DetectOptions,
+): DetectionResult | null {
+  const profile = computeProfile(mask);
   const lines = findGridLines(mask, profile, {
     searchWindowRatio: options.searchWindowRatio,
     maxContentRatio: options.maxContentRatio,
   });
+  if (!lines) return null;
 
-  if (!lines) {
-    return { ok: false, reason: 'no-gutters', totalOpaquePixels: profile.totalOpaque };
-  }
-
+  const sheetBounds: Rect = { x: 0, y: 0, width: mask.width, height: mask.height };
   const cells = cellsFromGridLines(mask, lines);
 
-  // 信頼度は他の8個との比較で決めるため、先に9個分の内容範囲を確定させる
   const found: { cellIndex: number; cell: Rect; contentBounds: Rect }[] = [];
   for (let cellIndex = 0; cellIndex < cells.length; cellIndex++) {
     const cell = cells[cellIndex];
     if (!cell) continue;
-
     const contentBounds = contentBoundsIn(mask, cell);
-    if (!contentBounds) {
-      return { ok: false, reason: 'empty-cell', totalOpaquePixels: profile.totalOpaque };
-    }
+    if (!contentBounds) return null;
     found.push({ cellIndex, cell, contentBounds });
   }
+  if (found.length !== STICKERS_PER_SHEET) return null;
 
   const medianArea = median(found.map((f) => f.contentBounds.width * f.contentBounds.height));
 
   const regions: StickerRegion[] = found.map(({ cellIndex, cell, contentBounds }) => ({
     cellIndex,
     // 安全余白はセルの内側で止める。シート全体まで広げると、隙間が狭いシートで
-    // 隣のスタンプの範囲へ食い込む（実測フィクスチャは行の隙間が8pxしかなく、
+    // 隣のスタンプの範囲へ食い込む（実測シートは行の隙間が8pxしかなく、
     // 余白8pxで918px分重なった）。セル境界は空の隙間の中心なので、
     // ここで止めても内容は1画素も失わない。
     bounds: expandRect(contentBounds, options.safeMarginPx, cell),
@@ -79,23 +98,84 @@ export function detectAlignedSheet(
     confidence: confidenceFor(contentBounds, sheetBounds, medianArea),
   }));
 
-  if (regions.length !== STICKERS_PER_SHEET) {
-    return { ok: false, reason: 'empty-cell', totalOpaquePixels: profile.totalOpaque };
+  return { strategy: 'simple-split', regions, totalOpaquePixels: totalOpaque };
+}
+
+/**
+ * 自由配置シート向け。連結領域を9個へまとめる。
+ *
+ * 実測では、白フチ付きのシートは1スタンプが1つの連結領域になり、
+ * 白フチの無いシートは本体＋装飾で複数の領域に分かれた。どちらも
+ * 「セルごとの本体を決めて、残りを最も近い本体へ寄せる」で扱える。
+ */
+export function trySmartDetection(
+  mask: AlphaMask,
+  totalOpaque: number,
+  options: DetectOptions,
+): DetectOutcome {
+  const sheetBounds: Rect = { x: 0, y: 0, width: mask.width, height: mask.height };
+  const contentBounds = contentBoundsIn(mask, sheetBounds);
+  if (!contentBounds) return { ok: false, reason: 'no-content', totalOpaquePixels: totalOpaque };
+
+  const minArea = Math.max(
+    1,
+    Math.round(mask.width * mask.height * options.minComponentAreaRatio),
+  );
+  const components = extractComponents(mask, minArea);
+  const priors = computeCellPriors(contentBounds);
+  const outcome = groupComponents(components, priors);
+
+  if (!outcome.ok) {
+    return {
+      ok: false,
+      reason: outcome.reason === 'empty-cell' ? 'empty-cell' : 'too-few-components',
+      totalOpaquePixels: totalOpaque,
+    };
   }
+
+  const rawBounds = outcome.groups.map((group) => group.bounds);
+  const medianArea = median(rawBounds.map((b) => b.width * b.height));
+
+  const regions: StickerRegion[] = outcome.groups.map((group, index) => {
+    // 安全余白は、隣のスタンプの範囲へ入らない分だけ足す
+    const others = rawBounds.filter((_, other) => other !== index);
+    const margin = safeMarginWithout(group.bounds, others, options.safeMarginPx);
+
+    return {
+      cellIndex: group.cellIndex,
+      bounds: expandRect(group.bounds, margin, sheetBounds),
+      contentBounds: group.bounds,
+      confidence: smartConfidenceFor(group.bounds, others, sheetBounds, medianArea),
+    };
+  });
 
   return {
     ok: true,
-    result: { strategy: 'simple-split', regions, totalOpaquePixels: profile.totalOpaque },
+    result: { strategy: 'smart-detection', regions, totalOpaquePixels: totalOpaque },
   };
 }
 
 /**
- * この抽出をどれだけ信用してよいか。低いものだけユーザーに確認を促す。
+ * 隣と重ならない範囲で、足せるだけ安全余白を足す。
  *
- * 隙間が空であることを確認してから切っているため、単純分割では内容の取りこぼしは
- * 起きない。したがって「切断線にどれだけ近いか」は危険信号にならない
- * （実測フィクスチャでは、9個すべて正しく取れているのに2個が低評価になった）。
+ * 隣の「元の範囲」ではなく「隙間の半分」を上限にするのが要点。
+ * 両側が同じ隙間へ伸びるため、片側だけを見て決めると足し合わせで食い込む
+ * （実測シートでは、1pxしか空いていない境目に両側から8pxずつ伸びて697px重なった）。
+ * 隙間は左右で分け合う。
+ */
+function safeMarginWithout(bounds: Rect, others: Rect[], desired: number): number {
+  let margin = desired;
+  for (const other of others) {
+    margin = Math.min(margin, Math.floor(rectSeparation(bounds, other) / 2));
+  }
+  return Math.max(0, margin);
+}
+
+/**
+ * 単純分割の信頼度。
  *
+ * 隙間が空であることを確認してから切っているため、内容の取りこぼしは起きない。
+ * したがって「切断線にどれだけ近いか」は危険信号にならない。
  * 実際に確認する価値があるのは次の2つ。
  *   1. 他の8個より極端に小さい  → スタンプ本体ではなく破片を拾った可能性
  *   2. シートの外周に接している  → 生成画像そのものが端で切れている可能性
@@ -105,7 +185,33 @@ function confidenceFor(content: Rect, sheetBounds: Rect, medianArea: number): nu
   const areaScore =
     medianArea > 0 && area < medianArea * IMAGE_CONFIG.suspiciousAreaRatio ? 0.3 : 1;
   const edgeScore = touchesEdge(content, sheetBounds) ? 0.6 : 1;
-  return Math.round(Math.min(areaScore, edgeScore) * 100) / 100;
+  return round2(Math.min(areaScore, edgeScore));
+}
+
+/**
+ * まとめ上げの信頼度。
+ *
+ * 単純分割の条件に加えて、範囲どうしの重なりを見る。
+ * 重なっているということは、隣のスタンプの一部が写り込むということ。
+ */
+function smartConfidenceFor(
+  bounds: Rect,
+  others: Rect[],
+  sheetBounds: Rect,
+  medianArea: number,
+): number {
+  const base = confidenceFor(bounds, sheetBounds, medianArea);
+  const area = bounds.width * bounds.height;
+  const overlap = others.reduce((sum, other) => sum + intersectionArea(bounds, other), 0);
+  const overlapRatio = area > 0 ? overlap / area : 0;
+
+  if (overlapRatio === 0) return base;
+  // 少しの重なりでも確認する価値がある
+  return round2(Math.min(base, Math.max(0, 1 - overlapRatio * 8)));
+}
+
+function round2(value: number): number {
+  return Math.round(value * 100) / 100;
 }
 
 function median(values: number[]): number {
