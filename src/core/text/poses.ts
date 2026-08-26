@@ -38,6 +38,11 @@ export interface PoseDesign {
  * 相手が必要な動作は使わない。実測で「背中を押す」と指示したところ、
  * 押される相手としてキャラクターが2体描かれた。
  * スタンプは1体で成立する動作でなければならない。
+ *
+ * 沈んだ表情は「おわび」「困った」だけに使う。実測で、
+ * 「また明日ね」に「さみしそうな」を割り当てていたため、
+ * 前向きな言葉なのに浮かない顔のスタンプになった。
+ * 表情は言葉と噛み合っていなければならない。
  */
 export const POSE_DESIGNS: readonly PoseDesign[] = [
   // ── 1周目（シート1枚目） ──
@@ -71,7 +76,7 @@ export const POSE_DESIGNS: readonly PoseDesign[] = [
   { emotion: '疲れた', pose: '机に突っ伏す', composition: 'side', prop: '机' },
   { emotion: 'やさしい', pose: '手をたたいて応援する', composition: 'side' },
   { emotion: '準備をする', pose: '荷物を持ち上げる', composition: 'angle', prop: '荷物' },
-  { emotion: 'さみしそうな', pose: '手を振りながら歩き出す', composition: 'side' },
+  { emotion: 'ごきげんな', pose: '手を振りながら歩き出す', composition: 'side' },
 
   // ── 4周目（シート4枚目） ──
   { emotion: '元気いっぱいの', pose: '飛び跳ねてあいさつする', composition: 'angle' },

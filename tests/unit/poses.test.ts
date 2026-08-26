@@ -108,6 +108,39 @@ describe('ポーズ設計', () => {
     expect(new Set(props).size, `重複した小道具がある: ${props.join(', ')}`).toBe(props.length);
   });
 
+  it('沈んだ表情を、おわびと困った以外に使わない', () => {
+    // 実測で「また明日ね」に「さみしそうな」が割り当たっており、
+    // 前向きな言葉なのに浮かない顔のスタンプになった。
+    // 言葉はプリセットごとに変わるので、表情はカテゴリ全体で無難でなければならない
+    const downbeat = [
+      'さみし',
+      'しょんぼり',
+      '泣きそう',
+      'ぐったり',
+      'しゅんと',
+      '疲れ',
+      '困惑',
+      'あせ',
+      'あわて',
+      '申し訳',
+      'つらそう',
+      '不安',
+      'がっかり',
+    ];
+    const allowed = ['apology', 'trouble'];
+
+    POSE_DESIGNS.forEach((design, index) => {
+      const category = categoryAt(index + 1);
+      if (allowed.includes(category)) return;
+      for (const word of downbeat) {
+        expect(
+          design.emotion,
+          `${index + 1}番（${category}）の「${design.emotion}」は沈みすぎている`,
+        ).not.toContain(word);
+      }
+    });
+  });
+
   it('相手が必要な動作を使わない', () => {
     // 実測で「背中を押す」と指示したところ、押される相手として
     // キャラクターが2体描かれた。スタンプは1体で成立する動作にする
