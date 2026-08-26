@@ -47,10 +47,8 @@ test('セリフを書き換えられる', async ({ page }) => {
   await expect(first).toHaveValue('おっはー');
 
   // 画像生成プロンプトにも反映される
-  await page.locator('.sheet-prompts__item summary').first().click();
-  await expect(page.locator('.sheet-prompts__body textarea').first()).toHaveValue(
-    /おっはー/,
-  );
+  await page.getByRole('button', { name: '文章を見る' }).first().click();
+  await expect(page.locator('.sheet-prompts__item textarea').first()).toHaveValue(/おっはー/);
 });
 
 test('シートごとの画像生成プロンプトが作られる', async ({ page }) => {
@@ -58,8 +56,8 @@ test('シートごとの画像生成プロンプトが作られる', async ({ pa
   await page.getByRole('button', { name: '24 個', exact: false }).first().click();
   await expect(page.locator('.sheet-prompts__item')).toHaveCount(3);
 
-  await page.locator('.sheet-prompts__item summary').first().click();
-  const prompt = page.locator('.sheet-prompts__body textarea').first();
+  await page.getByRole('button', { name: '文章を見る' }).first().click();
+  const prompt = page.locator('.sheet-prompts__item textarea').first();
 
   // 抽出しやすくするための指示が必ず入っている
   await expect(prompt).toHaveValue(/幅広で完全に透明な隙間/);
@@ -167,4 +165,55 @@ test('重複しているセリフを、番号つきで知らせて直せる', as
     nodes.map((node) => (node as HTMLInputElement).value),
   );
   expect(values.filter((value) => value === 'ありがとうございます')).toHaveLength(1);
+});
+
+test('開かなくてもプロンプトをコピーできる', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: '24 個', exact: false }).first().click();
+
+  // コピーボタンは最初から見えている（開く操作を必要としない）
+  const copyButtons = page.getByRole('button', { name: 'プロンプトをコピー' });
+  await expect(copyButtons).toHaveCount(3);
+  for (let i = 0; i < 3; i++) await expect(copyButtons.nth(i)).toBeVisible();
+
+  // 文章そのものは、見たいときだけ開く
+  await expect(page.locator('.sheet-prompts__item textarea')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: '文章を見る' }).first()).toHaveAttribute(
+    'aria-expanded',
+    'false',
+  );
+
+  await page.getByRole('button', { name: '文章を見る' }).first().click();
+  await expect(page.locator('.sheet-prompts__item textarea')).toHaveCount(1);
+  await expect(page.getByRole('button', { name: '文章を見る' }).first()).toHaveAttribute(
+    'aria-expanded',
+    'true',
+  );
+});
+
+test('コピーすると、その場で結果を知らせる', async ({ page }) => {
+  await page.goto('/');
+
+  await page.getByRole('button', { name: 'プロンプトをコピー' }).first().click();
+
+  // 失敗したときは「手で選んでコピーしてください」と出る作りなので、
+  // 成功の文言が出ることを確かめる
+  await expect(page.getByText('コピーしました')).toBeVisible();
+  await expect(page.getByText('コピーできませんでした', { exact: false })).toHaveCount(0);
+});
+
+test('コピーした中身が画像生成プロンプトになっている', async ({ page, context, browserName }) => {
+  // クリップボードの読み出しに対応しているブラウザだけで中身まで確かめる。
+  // 見た目の動作は上のテストが全ブラウザで見ている
+  test.skip(browserName !== 'chromium', 'クリップボードの読み出しに未対応');
+  await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+
+  await page.goto('/');
+  await page.getByRole('button', { name: 'プロンプトをコピー' }).first().click();
+
+  const copied = await page.evaluate(() => navigator.clipboard.readText());
+  expect(copied).toContain('幅広で完全に透明な隙間');
+  expect(copied).toContain('背景、背景装飾、影は追加しないでください');
+  expect(copied).toContain('「おはよう」');
+  expect(copied).toContain('「またね」');
 });

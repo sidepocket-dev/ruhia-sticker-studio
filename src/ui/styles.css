@@ -776,18 +776,37 @@ body {
 
 .sheet-prompts p { font-size: 13px; margin: 0 0 14px; }
 
+.sheet-prompts__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
 .sheet-prompts__item {
   border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 10px 14px;
+  border-radius: 10px;
+  padding: 12px 16px;
   margin-bottom: 8px;
   background: var(--surface);
 }
 
-.sheet-prompts__item summary { cursor: pointer; display: flex; gap: 10px; align-items: baseline; }
-.sheet-prompts__number { font-weight: 600; font-size: 14px; flex: none; }
+.sheet-prompts__row {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.sheet-prompts__number {
+  flex: none;
+  font-weight: 600;
+  font-size: 14px;
+  min-width: 52px;
+}
 
 .sheet-prompts__texts {
+  flex: 1 1 220px;
+  min-width: 0;
   font-size: 12px;
   color: var(--text-muted);
   overflow: hidden;
@@ -795,7 +814,31 @@ body {
   white-space: nowrap;
 }
 
-.sheet-prompts__body { margin-top: 12px; }
+.sheet-prompts__actions {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.sheet-prompts__toggle {
+  appearance: none;
+  border: none;
+  background: none;
+  padding: 6px 2px;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  white-space: nowrap;
+  min-height: 36px;
+}
+
+.sheet-prompts__toggle:hover { color: var(--text); }
+.sheet-prompts__toggle:focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }
+.sheet-prompts__caret { display: inline-block; width: 14px; }
+
 .sheet-prompts__note { margin-top: 14px; color: var(--text-muted); font-size: 12px; }
 
 .sticker-card__text {
