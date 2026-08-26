@@ -39,6 +39,12 @@ export const IMAGE_CONFIG = {
   /** 切り出したスタンプの周囲に足す安全余白 (px)。§77.8 */
   safeMarginPx: 8,
 
+  /**
+   * 他のスタンプと比べてこの割合より小さい抽出は、スタンプ本体ではなく
+   * 破片を拾った可能性があるとみなして確認を促す。
+   */
+  suspiciousAreaRatio: 0.4,
+
   /** Smart Detection の解析解像度。長辺をこの値以下へ縮小してから解析する。§77.5 */
   analysisMaxDimension: 1024,
 

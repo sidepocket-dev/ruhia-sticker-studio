@@ -15,6 +15,9 @@ export default defineConfig(({ mode }) => {
       assetsInlineLimit: offline ? 100_000_000 : 4096,
       cssCodeSplit: !offline,
     },
-    worker: { format: 'es' },
+    // classic 形式にしているのは、オフライン版 (file://) で Worker を動かすため。
+    // ES module Worker は Blob URL 経由で読み込まれ、file:// のオリジンでは
+    // module script として拒否される。
+    worker: { format: 'iife' },
   };
 });

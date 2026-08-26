@@ -2,6 +2,7 @@ import { expect, test } from '@playwright/test';
 import { existsSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 import { resolve } from 'node:path';
+import { trackNetworkRequests } from './helpers.js';
 
 /** Web版（開発サーバー）で画面が立ち上がること。 */
 test('Web版が表示される', async ({ page }) => {
@@ -23,11 +24,8 @@ test('オフライン版が file:// から表示され、外部通信をしな�
   const offlineHtml = resolve(process.cwd(), 'dist-offline/index.html');
   test.skip(!existsSync(offlineHtml), 'npm run build:offline を先に実行してください');
 
-  const externalRequests: string[] = [];
+  const externalRequests = trackNetworkRequests(page);
   const errors: string[] = [];
-  page.on('request', (request) => {
-    if (!request.url().startsWith('file://')) externalRequests.push(request.url());
-  });
   page.on('pageerror', (error) => errors.push(error.message));
 
   await page.goto(pathToFileURL(offlineHtml).href);
