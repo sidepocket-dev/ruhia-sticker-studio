@@ -37,26 +37,87 @@ test('先頭で左キーを押しても順番が壊れない', async ({ page }) 
   expect(await order(page)).toEqual(before);
 });
 
+/**
+ * 要素の中心の画面座標。
+ *
+ * page.mouse は画面座標で動くため、先に表示範囲へ入れてから座標を取る。
+ * 取ってからスクロールすると、狙った位置とずれる。
+ */
+async function centerOf(
+  locator: import('@playwright/test').Locator,
+): Promise<{ x: number; y: number }> {
+  await locator.scrollIntoViewIfNeeded();
+  const box = await locator.boundingBox();
+  expect(box).not.toBeNull();
+  return { x: (box?.x ?? 0) + (box?.width ?? 0) / 2, y: (box?.y ?? 0) + (box?.height ?? 0) / 2 };
+}
+
+/** つまみを掴んで、指定した場所で離す。 */
+async function dragHandleTo(
+  page: import('@playwright/test').Page,
+  fromIndex: number,
+  target: { x: number; y: number },
+): Promise<void> {
+  const from = await centerOf(page.locator('.reorder__handle').nth(fromIndex));
+  await page.mouse.move(from.x, from.y);
+  await page.mouse.down();
+  await page.mouse.move(target.x, target.y, { steps: 12 });
+  await page.mouse.up();
+}
+
+/** 離したあとにマウスを動かしても、並びが変わらないことを確かめる。 */
+async function expectDragEnded(page: import('@playwright/test').Page): Promise<void> {
+  const afterRelease = await order(page);
+
+  for (const index of [5, 1, 3]) {
+    const point = await centerOf(page.locator('.reorder__handle').nth(index));
+    await page.mouse.move(point.x, point.y, { steps: 4 });
+  }
+
+  expect(await order(page), '指を離したのに、まだくっついてきている').toEqual(afterRelease);
+  await expect(page.locator('.reorder__item--dragging')).toHaveCount(0);
+}
+
 test('つまみをドラッグして並び順を入れ替えられる', async ({ page }) => {
   const before = await order(page);
 
-  const handles = page.locator('.reorder__handle');
-  // page.mouse は画面座標で動くため、対象を表示範囲へ入れてから座標を取る
-  await handles.nth(0).scrollIntoViewIfNeeded();
-  const from = await handles.nth(0).boundingBox();
-  const to = await handles.nth(2).boundingBox();
-  expect(from).not.toBeNull();
-  expect(to).not.toBeNull();
-  if (!from || !to) return;
-
-  await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2);
-  await page.mouse.down();
-  await page.mouse.move(to.x + to.width / 2, to.y + to.height / 2, { steps: 12 });
-  await page.mouse.up();
+  await dragHandleTo(page, 0, await centerOf(page.locator('.reorder__handle').nth(2)));
 
   const after = await order(page);
   expect(after[2]).toBe(before[0]);
   expect(after).not.toEqual(before);
   // 枚数も中身も変わっていない
   expect([...after].sort()).toEqual([...before].sort());
+  await expectDragEnded(page);
+});
+
+test('カードの絵の上で離してもドラッグが終わる', async ({ page }) => {
+  // つまみの上で離さないとドラッグが終わらない不具合があった。
+  // 並び替えでDOMの要素が動くと、ポインタのつかみが外れるため
+  const before = await order(page);
+  await dragHandleTo(page, 0, await centerOf(page.locator('.reorder__item .reorder__image').nth(2)));
+
+  expect(await order(page)).not.toEqual(before);
+  await expectDragEnded(page);
+});
+
+test('カードとカードの隙間で離してもドラッグが終わる', async ({ page }) => {
+  const second = await centerOf(page.locator('.reorder__item').nth(2));
+  const third = await centerOf(page.locator('.reorder__item').nth(3));
+
+  await dragHandleTo(page, 0, { x: (second.x + third.x) / 2, y: second.y });
+  await expectDragEnded(page);
+});
+
+test('Escapeキーでドラッグをやめられる', async ({ page }) => {
+  const from = await centerOf(page.locator('.reorder__handle').nth(0));
+  const target = await centerOf(page.locator('.reorder__handle').nth(2));
+
+  await page.mouse.move(from.x, from.y);
+  await page.mouse.down();
+  await page.mouse.move(target.x, target.y, { steps: 8 });
+
+  await page.keyboard.press('Escape');
+  await page.mouse.up();
+  await expectDragEnded(page);
 });
