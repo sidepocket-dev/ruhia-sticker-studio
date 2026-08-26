@@ -1,0 +1,133 @@
+:root {
+  --bg: #fbfaf8;
+  --surface: #ffffff;
+  --border: #e5e0d8;
+  --text: #2b2724;
+  --text-muted: #6f675f;
+  --accent: #e8873a;
+  --accent-soft: #fdf1e6;
+  --ok: #3f8f5c;
+  --warn: #b8792a;
+  --error: #c0453c;
+  --radius: 12px;
+  --shadow: 0 1px 2px rgba(43, 39, 36, 0.06), 0 4px 16px rgba(43, 39, 36, 0.05);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #1a1816;
+    --surface: #232019;
+    --border: #3a352e;
+    --text: #f0ece6;
+    --text-muted: #a89f94;
+    --accent: #f0964a;
+    --accent-soft: #33281d;
+    --ok: #6cbb87;
+    --warn: #d9a556;
+    --error: #e0736a;
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 4px 16px rgba(0, 0, 0, 0.25);
+  }
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: system-ui, -apple-system, 'Hiragino Sans', 'Noto Sans JP', sans-serif;
+  line-height: 1.7;
+  -webkit-text-size-adjust: 100%;
+}
+
+.app {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 0 20px 80px;
+}
+
+.site-header {
+  padding: 32px 0 24px;
+}
+
+.site-title {
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  margin: 0;
+}
+
+.site-subtitle {
+  color: var(--text-muted);
+  font-size: 14px;
+  margin: 4px 0 0;
+}
+
+.privacy-note {
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+  margin-top: 18px;
+  padding: 12px 16px;
+  background: var(--accent-soft);
+  border-radius: var(--radius);
+  font-size: 14px;
+}
+
+.privacy-note strong { font-weight: 600; }
+
+.steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  list-style: none;
+  margin: 0 0 28px;
+  padding: 0;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.steps li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.steps li::after {
+  content: '';
+  width: 14px;
+  height: 1px;
+  background: var(--border);
+}
+
+.steps li:last-child::after { display: none; }
+
+.steps li[aria-current='step'] {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 28px;
+}
+
+.panel h2 {
+  margin: 0 0 8px;
+  font-size: 18px;
+}
+
+.panel p {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 14px;
+}
+
+.site-footer {
+  margin-top: 40px;
+  font-size: 12px;
+  color: var(--text-muted);
+}

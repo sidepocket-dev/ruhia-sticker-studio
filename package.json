@@ -1,0 +1,33 @@
+{
+  "name": "ruhia-sticker-studio",
+  "version": "0.1.0",
+  "private": true,
+  "description": "AI Sticker → LINE Sticker Converter",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "build:offline": "tsc --noEmit && vite build --mode offline",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "playwright test",
+    "typecheck": "tsc --noEmit",
+    "check": "npm run typecheck && npm run test"
+  },
+  "dependencies": {
+    "@preact/signals": "^2.0.1",
+    "fflate": "^0.8.2",
+    "preact": "^10.26.4"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.51.0",
+    "@preact/preset-vite": "^2.10.1",
+    "@types/node": "^22.20.1",
+    "fast-png": "^6.2.0",
+    "typescript": "^5.8.2",
+    "vite": "^6.2.0",
+    "vite-plugin-singlefile": "^2.2.0",
+    "vitest": "^3.0.8"
+  }
+}
