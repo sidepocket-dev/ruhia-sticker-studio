@@ -4,9 +4,16 @@ import { resolve } from 'node:path';
 
 const FIXTURE = resolve(process.cwd(), 'tests/fixtures/sheet-a.png');
 
+/** セリフ一覧は既定でたたまれている。中身を見るテストでは開く。 */
+async function openPlanList(page: import('@playwright/test').Page): Promise<void> {
+  const toggle = page.getByRole('button', { name: 'セリフを見る・直す' });
+  if ((await toggle.getAttribute('aria-expanded')) === 'false') await toggle.click();
+}
+
 test('用途を選ぶとセリフが入れ替わる', async ({ page }) => {
   await page.goto('/');
 
+  await openPlanList(page);
   const first = page.locator('.plan-list__text').first();
   await expect(first).toHaveValue('おはよう');
 
@@ -22,6 +29,7 @@ test('用途を選ぶとセリフが入れ替わる', async ({ page }) => {
 
 test('言葉づかいを変えるとセリフが変わる', async ({ page }) => {
   await page.goto('/');
+  await openPlanList(page);
   const third = page.locator('.plan-list__text').nth(2);
   await expect(third).toHaveValue('ありがとう');
 
@@ -31,6 +39,7 @@ test('言葉づかいを変えるとセリフが変わる', async ({ page }) => 
 
 test('個数を変えると必要なシート枚数ぶんセリフが並ぶ', async ({ page }) => {
   await page.goto('/');
+  await openPlanList(page);
   await expect(page.locator('.plan-list__text')).toHaveCount(9);
   await expect(page.locator('.plan-list__sheet')).toHaveCount(1);
 
@@ -42,6 +51,7 @@ test('個数を変えると必要なシート枚数ぶんセリフが並ぶ', as
 
 test('セリフを書き換えられる', async ({ page }) => {
   await page.goto('/');
+  await openPlanList(page);
   const first = page.locator('.plan-list__text').first();
   await first.fill('おっはー');
   await expect(first).toHaveValue('おっはー');
@@ -82,6 +92,7 @@ test('ChatGPTの回答を貼り付けてセリフを差し替えられる', asyn
   await page.getByRole('button', { name: 'このセリフを使う' }).click();
 
   await expect(page.getByText('9件読み込みました')).toBeVisible();
+  await openPlanList(page);
   await expect(page.locator('.plan-list__text').first()).toHaveValue('テスト1');
   await expect(page.locator('.plan-list__text').nth(8)).toHaveValue('テスト9');
 

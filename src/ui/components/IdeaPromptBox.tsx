@@ -33,7 +33,7 @@ export function IdeaPromptBox() {
           <CopyButton text={ideaPrompt.value} label="ChatGPT用の文章をコピー" />
           <textarea class="idea__prompt" readOnly rows={8} value={ideaPrompt.value} />
 
-          <h4>ChatGPTの回答を貼り付け</h4>
+          <h3>ChatGPTの回答を貼り付け</h3>
           <p>回答をそのままコピーして貼り付けてください。形式は気にしなくて大丈夫です。</p>
           <textarea
             class="idea__paste"

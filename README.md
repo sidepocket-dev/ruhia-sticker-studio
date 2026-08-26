@@ -103,6 +103,8 @@ ZIP作成
 - Chrome / Edge / Safari
 - Android Chrome / iOS Safari
 
+スマートフォンでも一通りの操作ができます（並び替えは指でつまみをドラッグ）。
+
 ---
 
 ## オフライン版

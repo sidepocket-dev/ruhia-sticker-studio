@@ -1,3 +1,4 @@
+import { useState } from 'preact/hooks';
 import { STICKERS_PER_SHEET } from '../../config/line-spec.js';
 import { targetCount } from '../../state/project.js';
 import {
@@ -8,13 +9,41 @@ import {
   revertDuplicates,
 } from '../../state/plan-store.js';
 
-/** これから作る45個のセリフ一覧。その場で書き換えられる。 */
+/**
+ * これから作る45個のセリフ一覧。その場で書き換えられる。
+ *
+ * 既定ではたたんでおく。用途を選べば中身は自動で決まるので、
+ * 多くの人は開かずに先へ進める。45行を常に出すと、
+ * 小さい画面では画面が延々と続いてしまう。
+ * ただし重複の知らせがあるときは、開かないと直せないので必ず出す。
+ */
 export function PlanList() {
   const sheets = planSheets.value;
   const target = targetCount.value;
+  const total = sheets.reduce((sum, sheet) => sum + sheet.length, 0);
+  const [open, setOpen] = useState(false);
+  const hasNotice = duplicateNotice.value !== '';
+
+  if (!open && !hasNotice) {
+    return (
+      <button type="button" class="collapse" aria-expanded={false} onClick={() => setOpen(true)}>
+        <span class="collapse__caret" aria-hidden="true">▸</span>
+        <span class="collapse__label">セリフを見る・直す</span>
+        <span class="collapse__summary">
+          {total}個ぶん用意しました（{sheets[0]?.slice(0, 3).map((plan) => plan.text).join('・')}…）
+        </span>
+      </button>
+    );
+  }
 
   return (
     <div class="plan-list">
+      {!hasNotice && (
+        <button type="button" class="collapse" aria-expanded onClick={() => setOpen(false)}>
+          <span class="collapse__caret" aria-hidden="true">▾</span>
+          <span class="collapse__label">セリフを見る・直す</span>
+        </button>
+      )}
       {duplicateNotice.value && (
         <div class="plan-list__notice">
           <p>{duplicateNotice.value}</p>
@@ -34,7 +63,7 @@ export function PlanList() {
 
       {sheets.map((sheet, sheetIndex) => (
         <div key={sheetIndex} class="plan-list__sheet">
-          <h4 class="plan-list__title">{sheetIndex + 1}枚目に入れる9個</h4>
+          <h3 class="plan-list__title">{sheetIndex + 1}枚目に入れる9個</h3>
           <ol class="plan-list__items">
             {sheet.map((plan) => (
               <li key={plan.id} class={plan.id > target ? 'plan-list__item--spare' : undefined}>
