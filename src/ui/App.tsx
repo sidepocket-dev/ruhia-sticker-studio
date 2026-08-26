@@ -20,6 +20,10 @@ import {
   status,
 } from '../state/sheet-store.js';
 import { CountChooser } from './components/CountChooser.js';
+import { IdeaPromptBox } from './components/IdeaPromptBox.js';
+import { PlanList } from './components/PlanList.js';
+import { PresetChooser } from './components/PresetChooser.js';
+import { SheetPrompts } from './components/SheetPrompts.js';
 import { ExportPanel } from './components/ExportPanel.js';
 import { ImageChooser } from './components/ImageChooser.js';
 import { ReorderStrip } from './components/ReorderStrip.js';
@@ -47,6 +51,19 @@ export function App() {
         <section class="panel">
           <h2>何個のスタンプを作りますか</h2>
           <CountChooser />
+        </section>
+
+        <section class="panel">
+          <h2>どんな場面で使いますか</h2>
+          <p>選んだ場面に合わせて、スタンプの中身を組み立てます。</p>
+          <PresetChooser />
+          <PlanList />
+          <IdeaPromptBox />
+        </section>
+
+        <section class="panel">
+          <h2>キャラクターの絵を作る</h2>
+          <SheetPrompts />
         </section>
 
         <section class="panel">

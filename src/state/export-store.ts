@@ -13,6 +13,7 @@ import { validateExport } from '../core/line/validator.js';
 import type { ExportedImage, ValidationIssue } from '../core/line/validator.js';
 import { renderToPng } from '../platform/render.js';
 import { createZip, downloadBytes } from '../platform/zip.js';
+import { plans } from './plan-store.js';
 import { targetCount } from './project.js';
 import { candidates, getSheetSource } from './sheet-store.js';
 import type { ExtractedSticker } from './sheet-store.js';
@@ -44,6 +45,32 @@ export const orderedSelection = computed<ExtractedSticker[]>(() => {
     if (sticker) found.push(sticker);
   }
   return found;
+});
+
+/**
+ * 選んだスタンプに対応するセリフ計画を、並び順どおりに返す。
+ *
+ * 候補の通し番号と計画の通し番号が一致している前提で対応づける。
+ * AIが指示どおりの順で描かない場合があるため、これは推定として扱い、
+ * 表示のみに使う（PRODUCT_SPEC.md §77.10）。
+ */
+export const orderedPlans = computed(() => {
+  const order = new Map(candidates.value.map((sticker, index) => [sticker.id, index + 1]));
+  const byId = new Map(plans.value.map((plan) => [plan.id, plan]));
+  return orderedSelection.value
+    .map((sticker) => byId.get(order.get(sticker.id) ?? -1))
+    .filter((plan) => plan !== undefined);
+});
+
+/** 候補の通し番号から、想定しているセリフを引く。 */
+export const plannedTextByCandidate = computed(() => {
+  const byId = new Map(plans.value.map((plan) => [plan.id, plan.text]));
+  const result = new Map<string, string>();
+  candidates.value.forEach((sticker, index) => {
+    const text = byId.get(index + 1);
+    if (text !== undefined) result.set(sticker.id, text);
+  });
+  return result;
 });
 
 /** 選択状況の案内文（PRODUCT_SPEC.md §40）。 */

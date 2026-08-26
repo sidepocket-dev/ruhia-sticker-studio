@@ -1,5 +1,5 @@
 import type { SheetEntry } from '../../state/sheet-store.js';
-import { isSelected, toggleSelection } from '../../state/export-store.js';
+import { isSelected, plannedTextByCandidate, toggleSelection } from '../../state/export-store.js';
 
 interface Props {
   sheet: SheetEntry;
@@ -15,6 +15,7 @@ export function StickerGrid({ sheet, startNumber }: Props) {
         const selected = isSelected(sticker.id);
         const needsCheck = sticker.region.confidence < 0.7;
         const number = startNumber + index;
+        const plannedText = plannedTextByCandidate.value.get(sticker.id);
         return (
           <li key={sticker.id}>
             <label class={`sticker-card${selected ? ' sticker-card--selected' : ''}`}>
@@ -32,6 +33,7 @@ export function StickerGrid({ sheet, startNumber }: Props) {
               </span>
               <span class="sticker-card__meta">
                 <span class="sticker-card__number">{String(number).padStart(2, '0')}</span>
+                {plannedText && <span class="sticker-card__text">{plannedText}</span>}
                 {needsCheck && <span class="sticker-card__warning">要確認</span>}
               </span>
             </label>
