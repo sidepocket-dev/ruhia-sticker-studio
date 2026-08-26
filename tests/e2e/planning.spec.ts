@@ -106,9 +106,15 @@ test('抽出したスタンプに、想定しているセリフが表示され�
     timeout: 15_000,
   });
 
-  const texts = await page.locator('.sticker-card__text').allTextContents();
-  expect(texts).toHaveLength(9);
-  expect(texts[0]).toBe('おはよう');
+  // セリフはその場で直せるよう入力欄になっている
+  const texts = page.locator('.sticker-card__text');
+  await expect(texts).toHaveCount(9);
+  await expect(texts.first()).toHaveValue('おはよう');
+  await expect(texts.nth(8)).toHaveValue('またね');
+
+  // 絵と文字が合っていないときに直せる
+  await texts.first().fill('おっはよー');
+  await expect(texts.first()).toHaveValue('おっはよー');
 });
 
 test('セリフ一覧を保存できる', async ({ page }) => {

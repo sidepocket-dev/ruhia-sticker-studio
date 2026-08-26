@@ -4,11 +4,14 @@ import {
   mainPreviewUrl,
   moveSelection,
   orderedSelection,
+  plannedTextByCandidate,
   selectionMessage,
   setMain,
   setTab,
+  sortSelection,
   tabId,
 } from '../state/export-store.js';
+import { SORT_LABELS } from '../core/text/ordering.js';
 import { requiredSheets, spareCount, targetCount } from '../state/project.js';
 import {
   candidates,
@@ -166,8 +169,25 @@ function Finishing() {
     <>
       <section class="panel">
         <h2>並び順を決める</h2>
-        <p>つまみをドラッグして入れ替えます。この順番でLINEに登録されます。</p>
-        <ReorderStrip items={selection} onMove={moveSelection} />
+        <p>この順番でLINEに登録されます。</p>
+
+        <div class="sort-buttons">
+          <button type="button" class="button" onClick={() => sortSelection('use')}>
+            {SORT_LABELS.use}に並べる
+          </button>
+          <button type="button" class="button button--quiet" onClick={() => sortSelection('sheet')}>
+            {SORT_LABELS.sheet}に戻す
+          </button>
+          <span class="sort-buttons__note">
+            よく使う種類から、種類ごとにまとめます。つまみをドラッグして直せます。
+          </span>
+        </div>
+
+        <ReorderStrip
+          items={selection}
+          onMove={moveSelection}
+          texts={plannedTextByCandidate.value}
+        />
       </section>
 
       <section class="panel">

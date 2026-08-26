@@ -4,6 +4,8 @@ import type { ExtractedSticker } from '../../state/sheet-store.js';
 interface Props {
   items: ExtractedSticker[];
   onMove: (from: number, to: number) => void;
+  /** カードに出すセリフ。絵が小さくても文字で見分けられるようにする。 */
+  texts: ReadonlyMap<string, string>;
 }
 
 /**
@@ -27,7 +29,7 @@ interface Props {
  *    ドラッグ中は何も起きず、離したあとの移動で並び替わっていた。
  *    → 押した瞬間に同期で登録する。
  */
-export function ReorderStrip({ items, onMove }: Props) {
+export function ReorderStrip({ items, onMove, texts }: Props) {
   const listRef = useRef<HTMLOListElement>(null);
   const dragIndexRef = useRef<number | null>(null);
   const detachRef = useRef<(() => void) | null>(null);
@@ -116,6 +118,7 @@ export function ReorderStrip({ items, onMove }: Props) {
         >
           <span class="reorder__number">{String(index + 1).padStart(2, '0')}</span>
           <img class="reorder__image" src={item.previewUrl} alt={`${index + 1}番目のスタンプ`} />
+          <span class="reorder__text">{texts.get(item.id) ?? ''}</span>
           <button
             type="button"
             class="reorder__handle"

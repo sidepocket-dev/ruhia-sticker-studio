@@ -12,6 +12,11 @@ import { STICKERS_PER_SHEET } from '../../config/line-spec.js';
  *
  * UIにはカテゴリ名を原則表示しない（PRODUCT_SPEC.md §4）。
  *
+ * useRank は提出するときの並び順。よく使う種類ほど小さい。
+ * LINEのスタンプ画面は少しずつスクロールして探すため、
+ * 最初の1画面によく使うものが来て、同じ種類がまとまっているほうが探しやすい。
+ * 生成用の並び（9カテゴリ × 5周）とは目的が違うので、別に持つ。
+ *
  * hint は依頼プロンプトへ入れる「変え方」の指示。
  * 実測で、種類だけ伝えても「あいさつ」の5枠が
  * 「おはようございます」「おはようございます」「こんにちは」「こんにちはー！」に
@@ -21,46 +26,55 @@ import { STICKERS_PER_SHEET } from '../../config/line-spec.js';
 export const STICKER_CATEGORIES = [
   {
     id: 'greeting',
+    useRank: 1,
     label: 'あいさつ',
     hint: '朝・昼・夜・久しぶり・帰ってきたときなど、場面を変えてください',
   },
   {
     id: 'reply',
+    useRank: 2,
     label: '返事',
     hint: '軽い返事・きちんとした返事・納得・確認など、返し方を変えてください',
   },
   {
     id: 'thanks',
+    useRank: 3,
     label: 'お礼',
     hint: '軽いお礼から深いお礼まで、気持ちの重さを変えてください',
   },
   {
     id: 'apology',
+    useRank: 9,
     label: 'おわび',
     hint: '軽い謝りから深い謝りまで、度合いを変えてください',
   },
   {
     id: 'joy',
+    useRank: 5,
     label: 'よろこび',
     hint: 'うれしい・楽しい・できた・しあわせなど、よろこびの種類を変えてください',
   },
   {
     id: 'trouble',
+    useRank: 8,
     label: '困った',
     hint: '困った・疲れた・わからない・つらいなど、困りごとの種類を変えてください',
   },
   {
     id: 'cheer',
+    useRank: 6,
     label: '応援',
     hint: '応援・励まし・気づかい・一緒にがんばるなど、声のかけ方を変えてください',
   },
   {
     id: 'plan',
+    useRank: 7,
     label: '予定',
     hint: '出発・到着・準備・時間の確認など、場面を変えてください',
   },
   {
     id: 'farewell',
+    useRank: 4,
     label: 'わかれ',
     hint: 'すぐまた会う・明日また会う・夜の別れなど、場面を変えてください',
   },

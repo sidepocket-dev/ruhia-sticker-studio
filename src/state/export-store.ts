@@ -13,6 +13,9 @@ import { validateExport } from '../core/line/validator.js';
 import type { ExportedImage, ValidationIssue } from '../core/line/validator.js';
 import { renderToPng } from '../platform/render.js';
 import { createZip, downloadBytes } from '../platform/zip.js';
+import { comparerFor } from '../core/text/ordering.js';
+import type { SortMode } from '../core/text/ordering.js';
+import type { StickerPlan } from '../core/text/plan.js';
 import { plans } from './plan-store.js';
 import { targetCount } from './project.js';
 import { candidates, getSheetSource } from './sheet-store.js';
@@ -62,14 +65,28 @@ export const orderedPlans = computed(() => {
     .filter((plan) => plan !== undefined);
 });
 
+/**
+ * 候補と、想定しているセリフ計画の対応。
+ *
+ * 候補の通し番号と計画の通し番号が一致している前提。
+ * 絵から文字を読み取っているわけではないので、AIが順番や文言を変えた場合はずれる。
+ * カード上でセリフを直せるようにしてあるので、合っていなければ直してもらう
+ * （PRODUCT_SPEC.md §77.10）。
+ */
+export const planByCandidate = computed(() => {
+  const byId = new Map(plans.value.map((plan) => [plan.id, plan]));
+  const result = new Map<string, StickerPlan>();
+  candidates.value.forEach((sticker, index) => {
+    const plan = byId.get(index + 1);
+    if (plan) result.set(sticker.id, plan);
+  });
+  return result;
+});
+
 /** 候補の通し番号から、想定しているセリフを引く。 */
 export const plannedTextByCandidate = computed(() => {
-  const byId = new Map(plans.value.map((plan) => [plan.id, plan.text]));
   const result = new Map<string, string>();
-  candidates.value.forEach((sticker, index) => {
-    const text = byId.get(index + 1);
-    if (text !== undefined) result.set(sticker.id, text);
-  });
+  for (const [id, plan] of planByCandidate.value) result.set(id, plan.text);
   return result;
 });
 
@@ -138,6 +155,25 @@ export function moveSelection(from: number, to: number): void {
   if (moved === undefined) return;
   order.splice(to, 0, moved);
   selectedIds.value = order;
+}
+
+/**
+ * 選んだスタンプを並べ替える。
+ *
+ * 40個を手で並べるのは現実的ではないため、ボタン一つで並ぶようにする。
+ * 対応づけが崩れている場合は正しく並ばないので、
+ * カード上でセリフを直してから使ってもらう。
+ */
+export function sortSelection(mode: SortMode): void {
+  const byId = planByCandidate.value;
+  const compare = comparerFor(mode);
+
+  selectedIds.value = [...selectedIds.value].sort((left, right) => {
+    const leftPlan = byId.get(left);
+    const rightPlan = byId.get(right);
+    if (!leftPlan || !rightPlan) return 0;
+    return compare(leftPlan, rightPlan);
+  });
 }
 
 export function setMain(id: string): void {

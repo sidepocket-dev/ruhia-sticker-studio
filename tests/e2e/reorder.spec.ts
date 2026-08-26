@@ -121,3 +121,57 @@ test('Escapeキーでドラッグをやめられる', async ({ page }) => {
   await page.mouse.up();
   await expectDragEnded(page);
 });
+
+test('ボタン一つで使いやすい順に並ぶ', async ({ page }) => {
+  const labels = () => page.locator('.reorder__text').allTextContents();
+
+  // 作った順では、あいさつが1番目と…に散らばっている
+  await expect(page.locator('.reorder__text').first()).toHaveText('おはよう');
+  const before = await labels();
+  expect(before[1]).toBe('りょーかい');
+
+  await page.getByRole('button', { name: '使いやすい順に並べる' }).click();
+
+  const after = await labels();
+  // 8個セットなので、あいさつ→返事→お礼…の順で1個ずつ
+  expect(after[0]).toBe('おはよう');
+  expect(after[1]).toBe('りょーかい');
+  // 枚数も中身も変わらない
+  expect([...after].sort()).toEqual([...before].sort());
+
+  await page.getByRole('button', { name: '作った順に戻す' }).click();
+  expect(await labels()).toEqual(before);
+});
+
+test('40個でも、種類ごとにまとまって並ぶ', async ({ page }) => {
+  await page.getByRole('button', { name: '40 個', exact: false }).first().click();
+  await page.setInputFiles('input[type="file"]', [
+    FIXTURE,
+    resolve(process.cwd(), 'tests/fixtures/sheet-2.png'),
+    resolve(process.cwd(), 'tests/fixtures/sheet-3.png'),
+    FIXTURE,
+    resolve(process.cwd(), 'tests/fixtures/sheet-2.png'),
+  ]);
+  await expect(page.getByRole('heading', { name: '45個のスタンプを見つけました' })).toBeVisible({
+    timeout: 60_000,
+  });
+
+  await page.getByRole('button', { name: '使いやすい順に並べる' }).click();
+
+  const texts = await page.locator('.reorder__text').allTextContents();
+  expect(texts).toHaveLength(40);
+
+  // 最初の5個があいさつ（日常用の1〜5周目のあいさつ）
+  expect(texts.slice(0, 5)).toEqual(['おはよう', 'やっほー', 'ただいま', 'ひさしぶり！', 'おかえり']);
+  // 最後がおわび
+  expect(texts.slice(-4)).toEqual(['遅れてごめん', 'ほんとごめん', 'わるかった', '反省してる…']);
+});
+
+test('カードのセリフを直すと、並び替えの表示にも反映される', async ({ page }) => {
+  const first = page.locator('.sticker-card__text').first();
+  await expect(first).toHaveValue('おはよう');
+
+  await first.fill('おっはよー');
+
+  await expect(page.locator('.reorder__text').first()).toHaveText('おっはよー');
+});
