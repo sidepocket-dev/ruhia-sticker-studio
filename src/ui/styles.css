@@ -76,37 +76,6 @@ body {
 
 .privacy-note strong { font-weight: 600; }
 
-.steps {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  list-style: none;
-  margin: 0 0 28px;
-  padding: 0;
-  font-size: 13px;
-  color: var(--text-muted);
-}
-
-.steps li {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.steps li::after {
-  content: '';
-  width: 14px;
-  height: 1px;
-  background: var(--border);
-}
-
-.steps li:last-child::after { display: none; }
-
-.steps li[aria-current='step'] {
-  color: var(--text);
-  font-weight: 600;
-}
-
 .panel {
   background: var(--surface);
   border: 1px solid var(--border);
@@ -210,19 +179,23 @@ body {
   padding: 0;
 }
 
-@media (max-width: 560px) {
-  .sticker-grid { grid-template-columns: repeat(2, 1fr); }
-  .panel { padding: 20px; }
+.panel + .panel { margin-top: 20px; }
+
+.sticker-card {
+  display: block;
+  cursor: pointer;
 }
 
 .sticker-card__frame {
-  aspect-ratio: 1;
+  position: relative;
   display: flex;
+  aspect-ratio: 1;
   align-items: center;
   justify-content: center;
   padding: 8px;
-  border: 1px solid var(--border);
+  border: 2px solid var(--border);
   border-radius: 10px;
+  transition: border-color 0.15s;
   /* 透明部分が分かるよう市松模様を敷く */
   background-color: var(--surface);
   background-image:
@@ -234,10 +207,37 @@ body {
   background-position: 0 0, 0 8px, 8px -8px, -8px 0;
 }
 
+.sticker-card--selected .sticker-card__frame { border-color: var(--accent); }
+.sticker-card input:focus-visible + .sticker-card__frame {
+  outline: 2px solid var(--text);
+  outline-offset: 2px;
+}
+
 .sticker-card__image {
   max-width: 100%;
   max-height: 100%;
   object-fit: contain;
+}
+
+.sticker-card__check {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  border: 2px solid var(--border);
+  background: var(--surface);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.sticker-card--selected .sticker-card__check {
+  background: var(--accent);
+  border-color: var(--accent);
 }
 
 .sticker-card__meta {
@@ -257,6 +257,189 @@ body {
   color: var(--warn);
   font-weight: 600;
 }
+
+.selection-status {
+  margin: 16px 0 0;
+  font-weight: 600;
+  color: var(--text);
+  font-size: 14px;
+}
+
+.reorder {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  list-style: none;
+  margin: 16px 0 0;
+  padding: 0;
+}
+
+.reorder__item {
+  position: relative;
+  width: 92px;
+  padding: 6px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  text-align: center;
+}
+
+.reorder__item--dragging {
+  border-color: var(--accent);
+  box-shadow: var(--shadow);
+}
+
+.reorder__number {
+  display: block;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
+}
+
+.reorder__image {
+  display: block;
+  width: 100%;
+  height: 60px;
+  object-fit: contain;
+}
+
+.reorder__handle {
+  appearance: none;
+  width: 100%;
+  min-height: 32px;
+  margin-top: 4px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 15px;
+  line-height: 1;
+  cursor: grab;
+  /* つまみだけタッチ操作を奪う。カード本体は普通にスクロールできる */
+  touch-action: none;
+}
+
+.reorder__handle:active { cursor: grabbing; }
+.reorder__handle:focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }
+
+.chooser {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  list-style: none;
+  margin: 16px 0 0;
+  padding: 0;
+}
+
+.chooser__item {
+  appearance: none;
+  width: 64px;
+  height: 64px;
+  padding: 4px;
+  border: 2px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  cursor: pointer;
+}
+
+.chooser__item--on { border-color: var(--accent); }
+.chooser__item:focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }
+.chooser__item img { width: 100%; height: 100%; object-fit: contain; }
+
+.chooser-row {
+  display: flex;
+  gap: 24px;
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+
+.chooser-row .chooser { flex: 1 1 260px; }
+
+.chooser-row__preview {
+  margin-top: 16px;
+  width: 120px;
+  height: 120px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg);
+}
+
+.chooser-row__preview img { max-width: 100%; max-height: 100%; }
+
+.tab-adjuster {
+  display: flex;
+  gap: 24px;
+  flex-wrap: wrap;
+  margin-top: 20px;
+}
+
+.tab-adjuster__work {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+  overflow: hidden;
+  cursor: grab;
+  touch-action: none;
+}
+
+.tab-adjuster__work:active { cursor: grabbing; }
+.tab-adjuster__work img { width: 100%; height: 100%; image-rendering: pixelated; }
+
+.tab-adjuster__hint {
+  margin: 6px 0 0;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.tab-adjuster__side { display: flex; flex-direction: column; gap: 8px; }
+
+.tab-adjuster__label { margin: 0; font-size: 12px; color: var(--text-muted); }
+
+.tab-adjuster__actual {
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg);
+  overflow: hidden;
+}
+
+.tab-adjuster__actual img { width: 100%; height: 100%; }
+
+.tab-adjuster__zoom {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.tab-adjuster__zoom input { flex: 1; min-width: 120px; }
+
+.export { margin-top: 8px; }
+
+.export__issues {
+  margin: 0 0 16px;
+  padding: 12px 16px 12px 32px;
+  border-radius: 8px;
+  font-size: 14px;
+}
+
+.export__issues--error { background: rgba(192, 69, 60, 0.1); color: var(--error); }
+.export__issues--warning { background: rgba(184, 121, 42, 0.1); color: var(--warn); }
+
+.export__done {
+  margin: 0 0 16px;
+  color: var(--ok);
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.export__blocked { margin: 10px 0 0; font-size: 13px; }
+
+.button--large { font-size: 15px; padding: 14px 28px; }
+.button:disabled { opacity: 0.45; cursor: not-allowed; }
 
 .visually-hidden {
   position: absolute;

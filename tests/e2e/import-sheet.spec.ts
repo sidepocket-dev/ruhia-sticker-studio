@@ -18,7 +18,7 @@ test('シートを読み込むと9個のスタンプが表示される', async (
     timeout: 15_000,
   });
 
-  const images = page.getByRole('listitem').locator('img');
+  const images = page.locator('.sticker-grid .sticker-card__image');
   await expect(images).toHaveCount(9);
 
   // すべてのプレビューが実際に描画されている（幅が0でない）
@@ -28,7 +28,7 @@ test('シートを読み込むと9個のスタンプが表示される', async (
   }
 
   // 正しく取れているので「要確認」は1つも出ない
-  await expect(page.getByText('要確認')).toHaveCount(0);
+  await expect(page.locator('.sticker-card__warning')).toHaveCount(0);
   expect(errors).toEqual([]);
 });
 
@@ -45,6 +45,6 @@ test('オフライン版でもシートを読み込める', async ({ page }) => 
   await expect(page.getByRole('heading', { name: '9個のスタンプを見つけました' })).toBeVisible({
     timeout: 15_000,
   });
-  await expect(page.getByRole('listitem').locator('img')).toHaveCount(9);
+  await expect(page.locator('.sticker-grid .sticker-card__image')).toHaveCount(9);
   expect(externalRequests, '外部へのリクエストが発生しました').toEqual([]);
 });
