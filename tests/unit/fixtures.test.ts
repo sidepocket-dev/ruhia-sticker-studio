@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_DETECT_OPTIONS, detectStickers } from '../../src/core/image/detect.js';
 import { STICKERS_PER_SHEET } from '../../src/config/line-spec.js';
+import { buildPlans } from '../../src/core/text/plan.js';
 import type { DetectionStrategy } from '../../src/core/image/types.js';
 import { loadPng } from '../helpers/png.js';
 import { toAlphaMask } from '../../src/core/image/alpha-mask.js';
@@ -10,6 +11,9 @@ import expectedA from '../fixtures/sheet-a.expected.json' with { type: 'json' };
 import expectedB from '../fixtures/sheet-b.expected.json' with { type: 'json' };
 import expectedC from '../fixtures/sheet-c.expected.json' with { type: 'json' };
 import expectedD from '../fixtures/sheet-d.expected.json' with { type: 'json' };
+import expectedE from '../fixtures/sheet-e.expected.json' with { type: 'json' };
+import expectedF from '../fixtures/sheet-f.expected.json' with { type: 'json' };
+import expected1 from '../fixtures/sheet-1.expected.json' with { type: 'json' };
 
 /**
  * 実際のAI生成シートでの回帰テスト。
@@ -47,6 +51,27 @@ const FIXTURES = [
     expected: expectedD,
     description: '白フチ付き・装飾が離れているシート',
     strategy: expectedD.strategy as DetectionStrategy,
+  },
+  {
+    id: 'E',
+    file: 'sheet-e.png',
+    expected: expectedE,
+    description: '白フチなし・装飾が多いシート',
+    strategy: expectedE.strategy as DetectionStrategy,
+  },
+  {
+    id: 'F',
+    file: 'sheet-f.png',
+    expected: expectedF,
+    description: '1024pxの小さめのシート',
+    strategy: expectedF.strategy as DetectionStrategy,
+  },
+  {
+    id: '1',
+    file: 'sheet-1.png',
+    expected: expected1,
+    description: 'このツールの計画から作った日常用の1枚目',
+    strategy: expected1.strategy as DetectionStrategy,
   },
 ];
 
@@ -107,5 +132,48 @@ describe.each(FIXTURES)('実シート $id（$description）', ({ file, expected,
     for (const region of outcome.result.regions) {
       expect(region.confidence, `スタンプ ${region.cellIndex + 1}`).toBeGreaterThanOrEqual(0.7);
     }
+  });
+});
+
+/**
+ * sheet-1.png は、このツールが組み立てた計画から作られた最初の実例。
+ *
+ *   日常用・カジュアル → 1周目の9件 → 画像生成プロンプト → ChatGPTで生成
+ *
+ * 計画 → プロンプト → 生成 → 抽出 の全経路が通ることを確かめる唯一の例なので、
+ * 対応関係が崩れていないかを固定しておく。
+ */
+describe('計画から作ったシートとの対応', () => {
+  const buffer = loadPng(new URL('../fixtures/sheet-1.png', import.meta.url).pathname);
+  const outcome = detectStickers(buffer);
+
+  const planned = buildPlans({ preset: 'daily', tone: 'casual', targetCount: 8 })
+    .slice(0, STICKERS_PER_SHEET)
+    .map((plan) => plan.text);
+
+  it('計画の1周目が、生成に使ったセリフと一致する', () => {
+    // 2026-08-26 に実際に生成へ使った9件
+    expect(planned).toEqual([
+      'おはよう',
+      'りょーかい',
+      'ありがとう',
+      'ごめんね',
+      'やったー！',
+      'どうしよう…',
+      'がんばって！',
+      'いってきまーす',
+      'またね',
+    ]);
+  });
+
+  it('抽出結果が左上から右下の順に9個そろう', () => {
+    expect(outcome.ok).toBe(true);
+    if (!outcome.ok) return;
+    // 候補の並びが計画の並びと対応する前提（PRODUCT_SPEC.md §38 / §77.10）。
+    // 目視で、1個目が「おはよう」、9個目が「またね」であることを確認済み
+    expect(outcome.result.regions.map((region) => region.cellIndex)).toEqual([
+      0, 1, 2, 3, 4, 5, 6, 7, 8,
+    ]);
+    expect(outcome.result.regions).toHaveLength(planned.length);
   });
 });
