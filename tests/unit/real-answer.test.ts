@@ -13,10 +13,32 @@ import { buildPlans } from '../../src/core/text/plan.js';
  * 番号がまったく無く、お礼の5枠すべてが「ありがとうございます」だった。
  * 合成データでは作れない、現実のAIの振る舞いを固定しておく。
  */
-const ANSWER = readFileSync(
-  new URL('../fixtures/chatgpt-answer-business.txt', import.meta.url).pathname,
-  'utf8',
-);
+const read = (name: string): string =>
+  readFileSync(new URL(`../fixtures/${name}`, import.meta.url).pathname, 'utf8');
+
+const ANSWER = read('chatgpt-answer-business.txt');
+
+/** 種類ごとの重複の数を測る。 */
+function duplicateSummary(texts: string[]): {
+  same: number;
+  contained: number;
+  brokenCategories: string[];
+} {
+  const groups = findDuplicates(texts);
+  const byCategory = new Map<string, string[]>();
+  texts.forEach((text, index) => {
+    const category = categoryAt(index + 1);
+    byCategory.set(category, [...(byCategory.get(category) ?? []), text]);
+  });
+
+  return {
+    same: groups.filter((group) => group.kind === 'same').length,
+    contained: groups.filter((group) => group.kind === 'contained').length,
+    brokenCategories: [...byCategory.entries()]
+      .filter(([, list]) => new Set(list).size < list.length)
+      .map(([category]) => category),
+  };
+}
 
 describe('実際のChatGPTの回答', () => {
   const result = parsePastedText(ANSWER);
@@ -107,5 +129,65 @@ describe('改善した依頼プロンプト', () => {
     for (const plan of plans) counts.set(plan.category, (counts.get(plan.category) ?? 0) + 1);
     expect(counts.size).toBe(CATEGORY_COUNT);
     for (const [category, count] of counts) expect(count, category).toBe(5);
+  });
+});
+
+/**
+ * 依頼プロンプトを改善したあとの、実際のChatGPTの回答。
+ *
+ * 2026-08-26 に、種類ごとの枠番号を明示するプロンプトで試したときの出力。
+ * 改善前と同じ45枠で、どれだけ重複が減ったかを固定する。
+ */
+describe('プロンプト改善の効果', () => {
+  const before = parsePastedText(ANSWER).entries.map((entry) => entry.text);
+  const after = parsePastedText(read('chatgpt-answer-improved.txt')).entries.map(
+    (entry) => entry.text,
+  );
+
+  it('改善後も45件読み取れる', () => {
+    expect(after).toHaveLength(45);
+  });
+
+  it('まったく同じセリフが減った', () => {
+    const b = duplicateSummary(before);
+    const a = duplicateSummary(after);
+    expect(b.same).toBe(4);
+    expect(a.same).toBe(2);
+    expect(a.same).toBeLessThan(b.same);
+  });
+
+  it('同じ種類の枠の中での重複が減った', () => {
+    const b = duplicateSummary(before);
+    const a = duplicateSummary(after);
+    expect(b.brokenCategories.sort()).toEqual(['apology', 'joy', 'thanks']);
+    // 残ったのは「あいさつ」だけ。日本語のあいさつは語彙が限られるため
+    expect(a.brokenCategories).toEqual(['greeting']);
+  });
+
+  it('お礼の5枠がすべて違う言葉になった', () => {
+    const thanks = after.filter((_, index) => categoryAt(index + 1) === 'thanks');
+    expect(thanks).toHaveLength(5);
+    expect(new Set(thanks).size).toBe(5);
+  });
+
+  it('残った重複も、ワンクリックで直せる数に収まっている', () => {
+    const summary = duplicateSummary(after);
+    expect(summary.same + summary.contained).toBeLessThanOrEqual(5);
+  });
+});
+
+describe('種類ごとの変え方の指示', () => {
+  const plans = buildPlans({ preset: 'daily', tone: 'polite', targetCount: 40 });
+  const prompt = buildIdeaPrompt(plans, 'daily', 'polite');
+
+  it('すべての種類に、どう変えるかの手がかりを添える', () => {
+    for (const category of STICKER_CATEGORIES) {
+      expect(prompt, `${category.label} の手がかりが無い`).toContain(category.hint);
+    }
+  });
+
+  it('あいさつには場面を変えるよう伝える', () => {
+    // 実測で、ここだけが「おはようございます」「こんにちは」に寄った
+    expect(prompt).toContain('朝・昼・夜・久しぶり・帰ってきたときなど、場面を変えてください');
   });
 });

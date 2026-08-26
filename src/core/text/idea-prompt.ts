@@ -23,6 +23,7 @@ export function buildIdeaPrompt(
 ): string {
   const preset = findPreset(presetId);
   const labels = new Map(STICKER_CATEGORIES.map((category) => [category.id, category.label]));
+  const hints = new Map(STICKER_CATEGORIES.map((category) => [category.id, category.hint]));
 
   const slotLines = plans.map((plan) => {
     const label = labels.get(plan.category) ?? '';
@@ -41,7 +42,9 @@ export function buildIdeaPrompt(
     const label = labels.get(category) ?? '';
     if (ids.length < 2) continue;
     groupLines.push(
-      `・【${label}】は ${ids.join('、')} 番の${ids.length}個です。${ids.length}個とも違う言い方にしてください。`,
+      `・【${label}】は ${ids.join('、')} 番の${ids.length}個です。` +
+        `${ids.length}個とも違う言い方にしてください。`,
+      `  ${hints.get(category) ?? ''}`,
     );
   }
 

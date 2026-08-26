@@ -11,17 +11,59 @@ import { STICKERS_PER_SHEET } from '../../config/line-spec.js';
  *   3. シート単位で作り直せる（3枚目だけ失敗したら3枚目だけ再生成）
  *
  * UIにはカテゴリ名を原則表示しない（PRODUCT_SPEC.md §4）。
+ *
+ * hint は依頼プロンプトへ入れる「変え方」の指示。
+ * 実測で、種類だけ伝えても「あいさつ」の5枠が
+ * 「おはようございます」「おはようございます」「こんにちは」「こんにちはー！」に
+ * 寄った。日本語のあいさつは語彙が限られるため、
+ * 「場面を変えろ」まで言わないとAIは寄せてくる。
  */
 export const STICKER_CATEGORIES = [
-  { id: 'greeting', label: 'あいさつ' },
-  { id: 'reply', label: '返事' },
-  { id: 'thanks', label: 'お礼' },
-  { id: 'apology', label: 'おわび' },
-  { id: 'joy', label: 'よろこび' },
-  { id: 'trouble', label: '困った' },
-  { id: 'cheer', label: '応援' },
-  { id: 'plan', label: '予定' },
-  { id: 'farewell', label: 'わかれ' },
+  {
+    id: 'greeting',
+    label: 'あいさつ',
+    hint: '朝・昼・夜・久しぶり・帰ってきたときなど、場面を変えてください',
+  },
+  {
+    id: 'reply',
+    label: '返事',
+    hint: '軽い返事・きちんとした返事・納得・確認など、返し方を変えてください',
+  },
+  {
+    id: 'thanks',
+    label: 'お礼',
+    hint: '軽いお礼から深いお礼まで、気持ちの重さを変えてください',
+  },
+  {
+    id: 'apology',
+    label: 'おわび',
+    hint: '軽い謝りから深い謝りまで、度合いを変えてください',
+  },
+  {
+    id: 'joy',
+    label: 'よろこび',
+    hint: 'うれしい・楽しい・できた・しあわせなど、よろこびの種類を変えてください',
+  },
+  {
+    id: 'trouble',
+    label: '困った',
+    hint: '困った・疲れた・わからない・つらいなど、困りごとの種類を変えてください',
+  },
+  {
+    id: 'cheer',
+    label: '応援',
+    hint: '応援・励まし・気づかい・一緒にがんばるなど、声のかけ方を変えてください',
+  },
+  {
+    id: 'plan',
+    label: '予定',
+    hint: '出発・到着・準備・時間の確認など、場面を変えてください',
+  },
+  {
+    id: 'farewell',
+    label: 'わかれ',
+    hint: 'すぐまた会う・明日また会う・夜の別れなど、場面を変えてください',
+  },
 ] as const;
 
 export type CategoryId = (typeof STICKER_CATEGORIES)[number]['id'];
