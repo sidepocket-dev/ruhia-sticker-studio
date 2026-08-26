@@ -1,0 +1,62 @@
+# main へ push すると、検証してから GitHub Pages へ公開する。
+#
+# 検証を通してからでないと公開しない。壊れたものが公開URLに出ると、
+# note記事から来た人がそのまま踏むため。
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# 同時に走らせない。走行中のものは止めて最新だけを公開する
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: 型と単体テスト
+        run: npm run check
+
+      - name: Web版とオフライン版をビルド
+        run: |
+          npm run build
+          npm run build:offline
+
+      # 実ブラウザでの確認。抽出も書き出しもここでしか通しで見られない
+      - name: ブラウザを用意
+        run: npx playwright install --with-deps chromium
+
+      - name: 通しの動作確認
+        run: npx playwright test --project=chromium
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
