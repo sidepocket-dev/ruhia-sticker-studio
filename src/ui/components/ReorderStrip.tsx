@@ -73,7 +73,7 @@ export function ReorderStrip({ items, onMove }: Props) {
     <ol class="reorder" ref={listRef}>
       {items.map((item, index) => (
         <li
-          key={item.region.cellIndex}
+          key={item.id}
           class={`reorder__item${draggingIndex === index ? ' reorder__item--dragging' : ''}`}
         >
           <span class="reorder__number">{String(index + 1).padStart(2, '0')}</span>

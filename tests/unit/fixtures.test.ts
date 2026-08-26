@@ -9,6 +9,7 @@ import { iou } from '../helpers/geometry.js';
 import expectedA from '../fixtures/sheet-a.expected.json' with { type: 'json' };
 import expectedB from '../fixtures/sheet-b.expected.json' with { type: 'json' };
 import expectedC from '../fixtures/sheet-c.expected.json' with { type: 'json' };
+import expectedD from '../fixtures/sheet-d.expected.json' with { type: 'json' };
 
 /**
  * 実際のAI生成シートでの回帰テスト。
@@ -39,6 +40,13 @@ const FIXTURES = [
     expected: expectedC,
     description: '文字が多いシート',
     strategy: 'simple-split' as DetectionStrategy,
+  },
+  {
+    id: 'D',
+    file: 'sheet-d.png',
+    expected: expectedD,
+    description: '白フチ付き・装飾が離れているシート',
+    strategy: expectedD.strategy as DetectionStrategy,
   },
 ];
 

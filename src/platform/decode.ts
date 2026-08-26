@@ -1,3 +1,4 @@
+import { encodePng } from '../core/image/png.js';
 import type { PixelBuffer, Rect } from '../core/image/types.js';
 
 /** 読み込んだシート1枚分。ビットマップは切り出しに再利用するので保持する。 */
@@ -31,19 +32,17 @@ export function readPixels(sheet: LoadedSheet): PixelBuffer {
  * シートの一部を切り出して、指定した長辺に収まる縮小画像のURLを作る。
  * 一覧表示用。元のビットマップは保持したまま、必要な分だけ描き出す。
  */
-export async function cropToObjectUrl(
-  sheet: LoadedSheet,
-  region: Rect,
-  maxSide: number,
-): Promise<string> {
+export function cropToObjectUrl(sheet: LoadedSheet, region: Rect, maxSide: number): string {
   const scale = Math.min(1, maxSide / Math.max(region.width, region.height));
   const width = Math.max(1, Math.round(region.width * scale));
   const height = Math.max(1, Math.round(region.height * scale));
 
   const canvas = new OffscreenCanvas(width, height);
-  const context = canvas.getContext('2d');
+  const context = canvas.getContext('2d', { willReadFrequently: true });
   if (!context) throw new Error('画像を作れませんでした');
 
+  context.imageSmoothingEnabled = true;
+  context.imageSmoothingQuality = 'high';
   context.drawImage(
     sheet.bitmap,
     region.x,
@@ -56,6 +55,7 @@ export async function cropToObjectUrl(
     height,
   );
 
-  const blob = await canvas.convertToBlob({ type: 'image/png' });
-  return URL.createObjectURL(blob);
+  const imageData = context.getImageData(0, 0, width, height);
+  const bytes = encodePng({ data: imageData.data, width, height });
+  return URL.createObjectURL(new Blob([bytes], { type: 'image/png' }));
 }

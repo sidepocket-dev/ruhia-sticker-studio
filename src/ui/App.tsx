@@ -1,4 +1,4 @@
-import { LINE_STATIC_STICKER_SPEC } from '../config/line-spec.js';
+import { LINE_STATIC_STICKER_SPEC, STICKERS_PER_SHEET } from '../config/line-spec.js';
 import {
   mainId,
   mainPreviewUrl,
@@ -9,23 +9,29 @@ import {
   setTab,
   tabId,
 } from '../state/export-store.js';
+import { requiredSheets, spareCount, targetCount } from '../state/project.js';
 import {
-  errorHint,
-  errorMessage,
+  candidates,
+  dismissProblems,
+  problems,
   progressMessage,
-  resetSheet,
-  sheetName,
+  resetAll,
+  sheets,
   status,
-  stickers,
 } from '../state/sheet-store.js';
+import { CountChooser } from './components/CountChooser.js';
 import { ExportPanel } from './components/ExportPanel.js';
 import { ImageChooser } from './components/ImageChooser.js';
 import { ReorderStrip } from './components/ReorderStrip.js';
 import { SheetDropZone } from './components/SheetDropZone.js';
+import { SheetList } from './components/SheetList.js';
 import { StickerGrid } from './components/StickerGrid.js';
 import { TabAdjuster } from './components/TabAdjuster.js';
 
 export function App() {
+  const loaded = sheets.value.length;
+  const remaining = requiredSheets.value - loaded;
+
   return (
     <div class="app">
       <header class="site-header">
@@ -38,14 +44,38 @@ export function App() {
       </header>
 
       <main>
-        {status.value === 'empty' && <StartPanel />}
-        {status.value === 'working' && (
-          <section class="panel panel--center" aria-live="polite">
-            <p class="working">{progressMessage.value}</p>
-          </section>
-        )}
-        {status.value === 'failed' && <FailurePanel />}
-        {status.value === 'ready' && <Workspace />}
+        <section class="panel">
+          <h2>何個のスタンプを作りますか</h2>
+          <CountChooser />
+        </section>
+
+        <section class="panel">
+          <div class="panel__head">
+            <div>
+              <h2>ステッカーシートを読み込む</h2>
+              <p>画像生成AIで作った、3×3に9個ならんだシートを読み込んでください。</p>
+            </div>
+            {loaded > 0 && (
+              <button type="button" class="button button--quiet" onClick={resetAll}>
+                すべて捨てる
+              </button>
+            )}
+          </div>
+
+          {loaded > 0 && <SheetList />}
+          {status.value !== 'working' && (
+            <SheetDropZone remaining={remaining} compact={loaded > 0} />
+          )}
+          {status.value === 'working' && (
+            <p class="working" aria-live="polite">
+              {progressMessage.value}
+            </p>
+          )}
+          {problems.value.length > 0 && <ProblemList />}
+        </section>
+
+        {loaded > 0 && <Candidates />}
+        {loaded > 0 && <Finishing />}
       </main>
 
       <footer class="site-footer">
@@ -59,47 +89,64 @@ export function App() {
   );
 }
 
-function StartPanel() {
+function ProblemList() {
+  return (
+    <div class="problems" aria-live="assertive">
+      <div class="problems__head">
+        <h3>読み込めなかった画像があります</h3>
+        <button type="button" class="icon-button" aria-label="閉じる" onClick={dismissProblems}>
+          ✕
+        </button>
+      </div>
+      <ul>
+        {problems.value.map((problem) => (
+          <li key={problem.name}>
+            <strong>{problem.name}</strong>
+            <span>{problem.message}</span>
+            <span class="problems__hint">{problem.hint}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function Candidates() {
+  const spare = spareCount.value;
+
   return (
     <section class="panel">
-      <h2>ステッカーシートを読み込む</h2>
-      <p>画像生成AIで作った、3×3に9個ならんだシートを読み込んでください。</p>
-      <SheetDropZone />
+      <div class="panel__head">
+        <div>
+          <h2>{candidates.value.length}個のスタンプを見つけました</h2>
+          <p>
+            {targetCount.value}個を選んでください。
+            {spare > 0 && `${spare}個は使わずに済ませられます。`}
+          </p>
+        </div>
+      </div>
+
+      {sheets.value.map((sheet, index) => (
+        <div key={sheet.id} class="candidates__sheet">
+          {sheets.value.length > 1 && (
+            <h3 class="candidates__title">
+              {index + 1}枚目 <span>{sheet.name}</span>
+            </h3>
+          )}
+          <StickerGrid sheet={sheet} startNumber={index * STICKERS_PER_SHEET + 1} />
+        </div>
+      ))}
+
+      <p class="selection-status">{selectionMessage.value}</p>
     </section>
   );
 }
 
-function FailurePanel() {
-  return (
-    <section class="panel" aria-live="assertive">
-      <h2 class="error-title">{errorMessage.value}</h2>
-      <p>{errorHint.value}</p>
-      <button type="button" class="button" onClick={resetSheet}>
-        別の画像を読み込む
-      </button>
-    </section>
-  );
-}
-
-function Workspace() {
-  const selection = orderedSelection();
+function Finishing() {
+  const selection = orderedSelection.value;
 
   return (
     <>
-      <section class="panel">
-        <div class="panel__head">
-          <div>
-            <h2>{stickers.value.length}個のスタンプを見つけました</h2>
-            <p>{sheetName.value}</p>
-          </div>
-          <button type="button" class="button button--quiet" onClick={resetSheet}>
-            読み込み直す
-          </button>
-        </div>
-        <StickerGrid stickers={stickers.value} />
-        <p class="selection-status">{selectionMessage.value}</p>
-      </section>
-
       <section class="panel">
         <h2>並び順を決める</h2>
         <p>つまみをドラッグして入れ替えます。この順番でLINEに登録されます。</p>

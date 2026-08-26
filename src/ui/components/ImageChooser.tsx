@@ -2,8 +2,8 @@ import type { ExtractedSticker } from '../../state/sheet-store.js';
 
 interface Props {
   items: ExtractedSticker[];
-  selectedId: number | null;
-  onChoose: (cellIndex: number) => void;
+  selectedId: string | null;
+  onChoose: (id: string) => void;
   label: string;
 }
 
@@ -12,12 +12,12 @@ export function ImageChooser({ items, selectedId, onChoose, label }: Props) {
   return (
     <ul class="chooser" aria-label={label}>
       {items.map((item, index) => (
-        <li key={item.region.cellIndex}>
+        <li key={item.id}>
           <button
             type="button"
-            class={`chooser__item${item.region.cellIndex === selectedId ? ' chooser__item--on' : ''}`}
-            aria-pressed={item.region.cellIndex === selectedId}
-            onClick={() => onChoose(item.region.cellIndex)}
+            class={`chooser__item${item.id === selectedId ? ' chooser__item--on' : ''}`}
+            aria-pressed={item.id === selectedId}
+            onClick={() => onChoose(item.id)}
           >
             <img src={item.previewUrl} alt={`${index + 1}番目のスタンプ`} />
           </button>

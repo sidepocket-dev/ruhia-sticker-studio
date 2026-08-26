@@ -1,10 +1,5 @@
 import { LINE_STATIC_STICKER_SPEC } from '../../config/line-spec.js';
-import {
-  exportIssues,
-  exportStatus,
-  exportZip,
-  remainingToSelect,
-} from '../../state/export-store.js';
+import { exportIssues, exportStatus, exportZip, remainingToSelect } from '../../state/export-store.js';
 
 /** 書き出し前の確認と、ZIPの作成。 */
 export function ExportPanel() {

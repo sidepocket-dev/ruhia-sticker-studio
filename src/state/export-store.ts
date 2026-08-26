@@ -13,19 +13,16 @@ import { validateExport } from '../core/line/validator.js';
 import type { ExportedImage, ValidationIssue } from '../core/line/validator.js';
 import { renderToPng } from '../platform/render.js';
 import { createZip, downloadBytes } from '../platform/zip.js';
-import { getCurrentSheet } from './sheet-store.js';
+import { targetCount } from './project.js';
+import { candidates, getSheetSource } from './sheet-store.js';
 import type { ExtractedSticker } from './sheet-store.js';
-import { stickers } from './sheet-store.js';
 
 const SPEC = LINE_STATIC_STICKER_SPEC;
 
-/** v1のMVPは1シート＝9候補なので、作れるのは8個セットのみ。 */
-export const targetCount = signal<number>(8);
-
-/** 選ばれたスタンプの cellIndex。並び順そのもの。 */
-export const selectedIds = signal<number[]>([]);
-export const mainId = signal<number | null>(null);
-export const tabId = signal<number | null>(null);
+/** 選ばれたスタンプのid。並び順そのもの。 */
+export const selectedIds = signal<string[]>([]);
+export const mainId = signal<string | null>(null);
+export const tabId = signal<string | null>(null);
 export const tabAdjustment = signal<CropAdjustment>(NEUTRAL_CROP);
 
 export const mainPreviewUrl = signal<string>('');
@@ -38,48 +35,72 @@ export const exportIssues = signal<ValidationIssue[]>([]);
 export const selectedCount = computed(() => selectedIds.value.length);
 export const remainingToSelect = computed(() => targetCount.value - selectedIds.value.length);
 
+/** 選ばれたスタンプを、並び順どおりに返す。 */
+export const orderedSelection = computed<ExtractedSticker[]>(() => {
+  const byId = new Map(candidates.value.map((sticker) => [sticker.id, sticker]));
+  const found: ExtractedSticker[] = [];
+  for (const id of selectedIds.value) {
+    const sticker = byId.get(id);
+    if (sticker) found.push(sticker);
+  }
+  return found;
+});
+
 /** 選択状況の案内文（PRODUCT_SPEC.md §40）。 */
 export const selectionMessage = computed(() => {
   const remaining = remainingToSelect.value;
-  if (remaining === 0) return `${targetCount.value} / ${targetCount.value} 選択済み`;
+  const target = targetCount.value;
+  if (remaining === 0) return `${target} / ${target} 選択済み`;
   if (remaining > 0) return `あと${remaining}個選んでください。`;
   return `あと${-remaining}個外してください。`;
 });
 
-/** シートを読み込み直したら、選択もやり直す。すぐ書き出せる状態を初期値にする。 */
+/**
+ * 候補や目標個数が変わったら、選択を整え直す。
+ *
+ * 既に選ばれているものはできるだけ残し、足りない分だけ先頭から補う。
+ * シートを追加するたびに選び直させないため。
+ */
 effect(() => {
-  const extracted = stickers.value;
-  if (extracted.length === 0) {
-    selectedIds.value = [];
-    mainId.value = null;
-    tabId.value = null;
-    exportStatus.value = 'idle';
-    exportIssues.value = [];
-    return;
+  const available = candidates.value;
+  const target = targetCount.value;
+
+  const availableIds = new Set(available.map((sticker) => sticker.id));
+  const kept = selectedIds.peek().filter((id) => availableIds.has(id));
+
+  const filled = [...kept];
+  for (const sticker of available) {
+    if (filled.length >= target) break;
+    if (!filled.includes(sticker.id)) filled.push(sticker.id);
+  }
+  const next = filled.slice(0, target);
+
+  if (next.length !== kept.length || next.some((id, index) => id !== kept[index])) {
+    selectedIds.value = next;
   }
 
-  const defaults = extracted.slice(0, targetCount.peek()).map((s) => s.region.cellIndex);
-  selectedIds.value = defaults;
-  mainId.value = defaults[0] ?? null;
-  tabId.value = defaults[0] ?? null;
-  tabAdjustment.value = NEUTRAL_CROP;
+  // メイン・タブが選択から外れたら、先頭へ寄せる
+  const first = next[0] ?? null;
+  if (!mainId.peek() || !next.includes(mainId.peek() ?? '')) mainId.value = first;
+  if (!tabId.peek() || !next.includes(tabId.peek() ?? '')) tabId.value = first;
+
   exportStatus.value = 'idle';
   exportIssues.value = [];
 });
 
-export function toggleSelection(cellIndex: number): void {
+export function toggleSelection(id: string): void {
   const current = selectedIds.value;
-  selectedIds.value = current.includes(cellIndex)
-    ? current.filter((id) => id !== cellIndex)
-    : [...current, cellIndex];
+  selectedIds.value = current.includes(id)
+    ? current.filter((other) => other !== id)
+    : [...current, id];
 
-  // 選択から外れたものはメイン・タブにも使えない
-  if (!selectedIds.value.includes(mainId.value ?? -1)) mainId.value = selectedIds.value[0] ?? null;
-  if (!selectedIds.value.includes(tabId.value ?? -1)) tabId.value = selectedIds.value[0] ?? null;
+  const next = selectedIds.value;
+  if (!next.includes(mainId.value ?? '')) mainId.value = next[0] ?? null;
+  if (!next.includes(tabId.value ?? '')) tabId.value = next[0] ?? null;
 }
 
-export function isSelected(cellIndex: number): boolean {
-  return selectedIds.value.includes(cellIndex);
+export function isSelected(id: string): boolean {
+  return selectedIds.value.includes(id);
 }
 
 /** 並び替え。from の位置にあるものを to の位置へ移す。 */
@@ -92,12 +113,12 @@ export function moveSelection(from: number, to: number): void {
   selectedIds.value = order;
 }
 
-export function setMain(cellIndex: number): void {
-  mainId.value = cellIndex;
+export function setMain(id: string): void {
+  mainId.value = id;
 }
 
-export function setTab(cellIndex: number): void {
-  tabId.value = cellIndex;
+export function setTab(id: string): void {
+  tabId.value = id;
   tabAdjustment.value = NEUTRAL_CROP;
 }
 
@@ -105,25 +126,15 @@ export function adjustTab(change: Partial<CropAdjustment>): void {
   tabAdjustment.value = { ...tabAdjustment.value, ...change };
 }
 
-function findSticker(cellIndex: number | null): ExtractedSticker | null {
-  if (cellIndex === null) return null;
-  return stickers.value.find((s) => s.region.cellIndex === cellIndex) ?? null;
-}
-
-/** 選ばれたスタンプを、並び順どおりに返す。 */
-export function orderedSelection(): ExtractedSticker[] {
-  const found: ExtractedSticker[] = [];
-  for (const id of selectedIds.value) {
-    const sticker = findSticker(id);
-    if (sticker) found.push(sticker);
-  }
-  return found;
+function findSticker(id: string | null): ExtractedSticker | null {
+  if (id === null) return null;
+  return candidates.value.find((sticker) => sticker.id === id) ?? null;
 }
 
 function stickerLayouts(selection: ExtractedSticker[]): ImageLayout[] {
-  const contents = selection.map((s) => ({
-    width: s.region.contentBounds.width,
-    height: s.region.contentBounds.height,
+  const contents = selection.map((sticker) => ({
+    width: sticker.region.contentBounds.width,
+    height: sticker.region.contentBounds.height,
   }));
   const { layouts } = computeStickerSetLayout(contents, IMAGE_CONFIG.safeMarginPx);
 
@@ -144,17 +155,21 @@ function stickerLayouts(selection: ExtractedSticker[]): ImageLayout[] {
   }));
 }
 
+function renderSticker(sticker: ExtractedSticker, layout: ImageLayout): Bytes | null {
+  const source = getSheetSource(sticker.sheetId);
+  if (!source) return null;
+  return renderToPng(source, sticker.region.contentBounds, layout);
+}
+
 let previewGeneration = 0;
 
 /** メイン画像・タブ画像の見た目を作り直す。 */
-export async function refreshPreviews(): Promise<void> {
+export function refreshPreviews(): void {
   // 依存する値は非同期処理に入る前にすべて読む。
   // await をまたぐと signal の依存として追跡されないため。
   const main = findSticker(mainId.value);
   const tab = findSticker(tabId.value);
   const adjustment = tabAdjustment.value;
-  const sheet = getCurrentSheet();
-  if (!sheet) return;
 
   // 続けて操作されたときに、古い結果で上書きしない
   const generation = ++previewGeneration;
@@ -165,9 +180,9 @@ export async function refreshPreviews(): Promise<void> {
       { width: SPEC.main.width, height: SPEC.main.height },
       IMAGE_CONFIG.safeMarginPx,
     );
-    const bytes = await renderToPng(sheet, main.region.contentBounds, layout);
+    const bytes = renderSticker(main, layout);
     if (generation !== previewGeneration) return;
-    replaceUrl(mainPreviewUrl, bytes);
+    if (bytes) replaceUrl(mainPreviewUrl, bytes);
   }
 
   if (tab) {
@@ -176,32 +191,32 @@ export async function refreshPreviews(): Promise<void> {
       { width: SPEC.tab.width, height: SPEC.tab.height },
       adjustment,
     );
-    const bytes = await renderToPng(sheet, tab.region.contentBounds, layout);
+    const bytes = renderSticker(tab, layout);
     if (generation !== previewGeneration) return;
-    replaceUrl(tabPreviewUrl, bytes);
+    if (bytes) replaceUrl(tabPreviewUrl, bytes);
   }
 }
 
 /** メイン・タブの選択や調整が変わったら、見た目を作り直す。 */
 effect(() => {
-  void refreshPreviews();
+  refreshPreviews();
 });
 
 function replaceUrl(target: typeof mainPreviewUrl, bytes: Bytes): void {
-  if (target.value) URL.revokeObjectURL(target.value);
+  // peek で読むのが重要。この関数は effect の中から呼ばれるため、
+  // .value で読むと「自分が書き込む値を自分が見張る」形になり循環する
+  const previous = target.peek();
+  if (previous) URL.revokeObjectURL(previous);
   target.value = URL.createObjectURL(new Blob([bytes], { type: 'image/png' }));
 }
 
 /** LINE提出用のZIPを作って保存する。 */
 export async function exportZip(): Promise<void> {
-  const sheet = getCurrentSheet();
-  if (!sheet) return;
-
   exportStatus.value = 'working';
   exportIssues.value = [];
 
   try {
-    const selection = orderedSelection();
+    const selection = orderedSelection.value;
     const layouts = stickerLayouts(selection);
 
     const stickerImages: ExportedImage[] = [];
@@ -209,43 +224,25 @@ export async function exportZip(): Promise<void> {
       const sticker = selection[index];
       const layout = layouts[index];
       if (!sticker || !layout) continue;
-      stickerImages.push({
-        name: stickerFileName(index + 1),
-        bytes: await renderToPng(sheet, sticker.region.contentBounds, layout),
-      });
+      const bytes = renderSticker(sticker, layout);
+      if (bytes) stickerImages.push({ name: stickerFileName(index + 1), bytes });
     }
 
-    const mainSticker = findSticker(mainId.value);
-    const main: ExportedImage | null = mainSticker
-      ? {
-          name: SPEC.fileNames.main,
-          bytes: await renderToPng(
-            sheet,
-            mainSticker.region.contentBounds,
-            computeFixedLayout(
-              mainSticker.region.contentBounds,
-              { width: SPEC.main.width, height: SPEC.main.height },
-              IMAGE_CONFIG.safeMarginPx,
-            ),
-          ),
-        }
-      : null;
+    const main = renderNamed(findSticker(mainId.value), SPEC.fileNames.main, (content) =>
+      computeFixedLayout(
+        content,
+        { width: SPEC.main.width, height: SPEC.main.height },
+        IMAGE_CONFIG.safeMarginPx,
+      ),
+    );
 
-    const tabSticker = findSticker(tabId.value);
-    const tab: ExportedImage | null = tabSticker
-      ? {
-          name: SPEC.fileNames.tab,
-          bytes: await renderToPng(
-            sheet,
-            tabSticker.region.contentBounds,
-            computeAdjustedLayout(
-              tabSticker.region.contentBounds,
-              { width: SPEC.tab.width, height: SPEC.tab.height },
-              tabAdjustment.value,
-            ),
-          ),
-        }
-      : null;
+    const tab = renderNamed(findSticker(tabId.value), SPEC.fileNames.tab, (content) =>
+      computeAdjustedLayout(
+        content,
+        { width: SPEC.tab.width, height: SPEC.tab.height },
+        tabAdjustment.value,
+      ),
+    );
 
     const entries = [main, tab, ...stickerImages].filter((entry) => entry !== null);
     const totalBytes = entries.reduce((sum, entry) => sum + entry.bytes.byteLength, 0);
@@ -268,7 +265,19 @@ export async function exportZip(): Promise<void> {
     exportStatus.value = 'done';
   } catch (cause) {
     console.error('[RUHiA Sticker Studio] 書き出しに失敗しました', cause);
-    exportIssues.value = [{ kind: 'error', message: 'データを作れませんでした。もう一度お試しください。' }];
+    exportIssues.value = [
+      { kind: 'error', message: 'データを作れませんでした。もう一度お試しください。' },
+    ];
     exportStatus.value = 'idle';
   }
+}
+
+function renderNamed(
+  sticker: ExtractedSticker | null,
+  name: string,
+  toLayout: (content: { width: number; height: number }) => ImageLayout,
+): ExportedImage | null {
+  if (!sticker) return null;
+  const bytes = renderSticker(sticker, toLayout(sticker.region.contentBounds));
+  return bytes ? { name, bytes } : null;
 }

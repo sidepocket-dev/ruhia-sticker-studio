@@ -1,38 +1,37 @@
-import type { ExtractedSticker } from '../../state/sheet-store.js';
+import type { SheetEntry } from '../../state/sheet-store.js';
 import { isSelected, toggleSelection } from '../../state/export-store.js';
 
 interface Props {
-  stickers: ExtractedSticker[];
+  sheet: SheetEntry;
+  /** このシートの1個目が、全体で何番目の候補か（1始まり） */
+  startNumber: number;
 }
 
-/** 取り出したスタンプを3 × 3 で並べ、使うものを選んでもらう。 */
-export function StickerGrid({ stickers }: Props) {
+/** 1枚のシートから取り出したスタンプを3 × 3 で並べ、使うものを選んでもらう。 */
+export function StickerGrid({ sheet, startNumber }: Props) {
   return (
     <ul class="sticker-grid">
-      {stickers.map((sticker, index) => {
-        const selected = isSelected(sticker.region.cellIndex);
+      {sheet.stickers.map((sticker, index) => {
+        const selected = isSelected(sticker.id);
         const needsCheck = sticker.region.confidence < 0.7;
+        const number = startNumber + index;
         return (
-          <li key={sticker.region.cellIndex}>
+          <li key={sticker.id}>
             <label class={`sticker-card${selected ? ' sticker-card--selected' : ''}`}>
               <input
                 type="checkbox"
                 class="visually-hidden"
                 checked={selected}
-                onChange={() => toggleSelection(sticker.region.cellIndex)}
+                onChange={() => toggleSelection(sticker.id)}
               />
               <span class="sticker-card__frame">
-                <img
-                  class="sticker-card__image"
-                  src={sticker.previewUrl}
-                  alt={`スタンプ ${index + 1}`}
-                />
+                <img class="sticker-card__image" src={sticker.previewUrl} alt={`候補 ${number}`} />
                 <span class="sticker-card__check" aria-hidden="true">
                   {selected ? '✓' : ''}
                 </span>
               </span>
               <span class="sticker-card__meta">
-                <span class="sticker-card__number">{String(index + 1).padStart(2, '0')}</span>
+                <span class="sticker-card__number">{String(number).padStart(2, '0')}</span>
                 {needsCheck && <span class="sticker-card__warning">要確認</span>}
               </span>
             </label>
