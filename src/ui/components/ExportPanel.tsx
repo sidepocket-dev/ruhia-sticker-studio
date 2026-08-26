@@ -1,11 +1,13 @@
 import { LINE_STATIC_STICKER_SPEC } from '../../config/line-spec.js';
 import {
+  exportDelivery,
   exportIssues,
   exportStatus,
   exportZip,
   orderedPlans,
   remainingToSelect,
 } from '../../state/export-store.js';
+import { shouldShare, describeDelivery } from '../../platform/share.js';
 import { buildTextsJson, buildTextsTxt } from '../../core/text/export-texts.js';
 import { downloadText } from '../../platform/clipboard.js';
 
@@ -35,9 +37,10 @@ export function ExportPanel() {
         </ul>
       )}
 
-      {exportStatus.value === 'done' && (
+      {exportStatus.value === 'done' && exportDelivery.value && (
         <p class="export__done" aria-live="polite">
-          {LINE_STATIC_STICKER_SPEC.zipName} を保存しました。LINE Creators Market へこのまま提出できます。
+          {describeDelivery(exportDelivery.value, LINE_STATIC_STICKER_SPEC.zipName)}
+          {' LINE Creators Market へこのまま提出できます。'}
         </p>
       )}
 
@@ -45,9 +48,9 @@ export function ExportPanel() {
         type="button"
         class="button button--large"
         disabled={!ready || working}
-        onClick={() => void exportZip()}
+        onClick={exportZip}
       >
-        {working ? '作成しています…' : 'LINE用データを作成'}
+        {working ? '作成しています…' : shouldShare() ? 'LINE用データを作成・保存' : 'LINE用データを作成'}
       </button>
 
       {!ready && <p class="export__blocked">選ぶ個数がそろうと作成できます。</p>}

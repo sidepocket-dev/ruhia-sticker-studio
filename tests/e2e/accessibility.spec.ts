@@ -276,6 +276,8 @@ test('フォーカスした場所が目で分かる', async ({ page }) => {
  * 目的の場所へたどり着けなくなる。
  */
 test('小さい画面でも全体の長さが現実的に収まる', async ({ page }) => {
+  // 5枚を解析するので時間がかかる
+  test.slow();
   await page.setViewportSize({ width: 375, height: 667 });
   await page.goto('/');
   await page.getByRole('button', { name: '40 個', exact: false }).first().click();

@@ -5,7 +5,7 @@ import {
   buildProjectPackage,
   readProjectPackage,
 } from '../../platform/project-package.js';
-import { downloadBytes } from '../../platform/zip.js';
+import { shouldShare, deliverFile, describeDelivery } from '../../platform/share.js';
 import { orderedPlans } from '../../state/export-store.js';
 import {
   applySnapshot,
@@ -36,22 +36,24 @@ export function ProjectPanel() {
   const [working, setWorking] = useState(false);
   const unavailable = saveState.value === 'unavailable';
 
-  const save = async (): Promise<void> => {
-    setWorking(true);
+  /**
+   * 押した流れのまま共有シートを出すため、await を挟まずに組み立てて渡す。
+   * 間に await を入れると、iOSでは「操作から続いていない」と判断されて拒否される。
+   */
+  const save = (): void => {
     setMessage('');
     try {
-      const snapshot = captureSnapshot();
-      const plans = orderedPlans.value;
-      const bytes = buildProjectPackage(snapshot, {
-        txt: buildTextsTxt(plans),
-        json: buildTextsJson(plans),
+      const bytes = buildProjectPackage(captureSnapshot(), {
+        txt: buildTextsTxt(orderedPlans.value),
+        json: buildTextsJson(orderedPlans.value),
       });
-      downloadBytes(bytes, PROJECT_PACKAGE_NAME, 'application/zip');
-      setMessage(`${PROJECT_PACKAGE_NAME} を保存しました。`);
+      setWorking(true);
+      void deliverFile(bytes, PROJECT_PACKAGE_NAME, 'application/zip')
+        .then((result) => setMessage(describeDelivery(result, PROJECT_PACKAGE_NAME)))
+        .finally(() => setWorking(false));
     } catch (cause) {
       console.error('[RUHiA Sticker Studio] プロジェクトを保存できませんでした', cause);
       setMessage('保存できませんでした。もう一度お試しください。');
-    } finally {
       setWorking(false);
     }
   };
@@ -95,9 +97,9 @@ export function ProjectPanel() {
           type="button"
           class="button button--quiet"
           disabled={working || sheets.value.length === 0}
-          onClick={() => void save()}
+          onClick={save}
         >
-          作業内容を保存
+          {shouldShare() ? '作業内容を保存・共有' : '作業内容を保存'}
         </button>
         <button
           type="button"

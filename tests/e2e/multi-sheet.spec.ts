@@ -34,6 +34,8 @@ test('3枚まとめて読み込むと27個の候補になる', async ({ page }) 
 });
 
 test('TC08: 5枚から40個セットのZIPを作れる', async ({ page }) => {
+  // 5枚の解析と42枚の書き出し。並列で走ると余裕が必要
+  test.slow();
   const errors: string[] = [];
   page.on('pageerror', (error) => errors.push(error.message));
 

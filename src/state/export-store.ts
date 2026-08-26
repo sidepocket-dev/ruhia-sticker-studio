@@ -12,7 +12,9 @@ import type { CropAdjustment, ImageLayout } from '../core/line/layout.js';
 import { validateExport } from '../core/line/validator.js';
 import type { ExportedImage, ValidationIssue } from '../core/line/validator.js';
 import { renderToPng } from '../platform/render.js';
-import { createZip, downloadBytes } from '../platform/zip.js';
+import { deliverFile } from '../platform/share.js';
+import type { DeliverResult } from '../platform/share.js';
+import { createZip } from '../platform/zip.js';
 import { comparerFor } from '../core/text/ordering.js';
 import type { SortMode } from '../core/text/ordering.js';
 import type { StickerPlan } from '../core/text/plan.js';
@@ -34,6 +36,8 @@ export const tabPreviewUrl = signal<string>('');
 
 export type ExportStatus = 'idle' | 'working' | 'done';
 export const exportStatus = signal<ExportStatus>('idle');
+/** 書き出したファイルをどう渡したか。案内文を変えるために持つ。 */
+export const exportDelivery = signal<DeliverResult | null>(null);
 export const exportIssues = signal<ValidationIssue[]>([]);
 
 export const selectedCount = computed(() => selectedIds.value.length);
@@ -278,10 +282,16 @@ function replaceUrl(target: typeof mainPreviewUrl, bytes: Bytes): void {
   target.value = URL.createObjectURL(new Blob([bytes], { type: 'image/png' }));
 }
 
-/** LINE提出用のZIPを作って保存する。 */
-export async function exportZip(): Promise<void> {
+/**
+ * LINE提出用のZIPを作って渡す。
+ *
+ * 押した流れのまま共有シートを出す必要があるため、
+ * 渡すところまで await を挟まずに進める。描画もZIP作成も同期処理なので成立する。
+ */
+export function exportZip(): void {
   exportStatus.value = 'working';
   exportIssues.value = [];
+  exportDelivery.value = null;
 
   try {
     const selection = orderedSelection.value;
@@ -329,8 +339,10 @@ export async function exportZip(): Promise<void> {
       return;
     }
 
-    downloadBytes(createZip(entries), SPEC.zipName, 'application/zip');
-    exportStatus.value = 'done';
+    void deliverFile(createZip(entries), SPEC.zipName, 'application/zip').then((result) => {
+      exportDelivery.value = result;
+      exportStatus.value = result === 'cancelled' ? 'idle' : 'done';
+    });
   } catch (cause) {
     console.error('[RUHiA Sticker Studio] 書き出しに失敗しました', cause);
     exportIssues.value = [

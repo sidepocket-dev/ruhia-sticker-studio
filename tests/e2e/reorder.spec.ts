@@ -144,6 +144,8 @@ test('ボタン一つで使いやすい順に並ぶ', async ({ page }) => {
 });
 
 test('40個でも、種類ごとにまとまって並ぶ', async ({ page }) => {
+  // 5枚（各1.6MB）を解析するので時間がかかる。並列で走ると余裕が必要
+  test.slow();
   await page.getByRole('button', { name: '40 個', exact: false }).first().click();
   await page.setInputFiles('input[type="file"]', [
     FIXTURE,
