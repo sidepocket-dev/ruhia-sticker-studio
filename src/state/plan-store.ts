@@ -7,11 +7,24 @@ import { describeParseResult, parsePastedText } from '../core/text/parser.js';
 import type { FailedLine } from '../core/text/parser.js';
 import { USE_PRESETS, findPreset } from '../core/text/presets.js';
 import type { Tone, UsePresetId } from '../core/text/presets.js';
-import { buildAllStickerPrompts } from '../core/text/sticker-prompt.js';
+import { buildAllStickerPrompts, buildBatchStickerPrompt } from '../core/text/sticker-prompt.js';
+import type { StylePresetId } from '../core/text/styles.js';
 import { candidateCount, targetCount } from './project.js';
 
 export const presetId = signal<UsePresetId>('daily');
 export const tone = signal<Tone>('casual');
+
+/** 全体の仕上がり設定（追加仕様 §6）。標準はAIにまかせる */
+export const stylePreset = signal<StylePresetId>('auto');
+
+/**
+ * 生成の頼み方（追加仕様 §1）。
+ *
+ * まとめて頼むとシリーズ感が揃いやすいが、モデルによっては複数枚を返せない。
+ * そのため1枚ずつのモードを必ず残す。
+ */
+export type GenerationMode = 'one-by-one' | 'batch';
+export const generationMode = signal<GenerationMode>('one-by-one');
 
 /** ユーザーが書き換えた、またはChatGPTの回答で置き換えたセリフ。キーは通し番号。 */
 export const textOverrides = signal<Record<number, string>>({});
@@ -38,7 +51,14 @@ export const plans = computed<StickerPlan[]>(() => {
 
 export const planSheets = computed(() => groupBySheet(plans.value));
 
-export const stickerPrompts = computed(() => buildAllStickerPrompts(planSheets.value));
+export const stickerPrompts = computed(() =>
+  buildAllStickerPrompts(planSheets.value, stylePreset.value),
+);
+
+/** すべてのシートを1回で頼むプロンプト。 */
+export const batchPrompt = computed(() =>
+  buildBatchStickerPrompt(planSheets.value, stylePreset.value),
+);
 
 export const ideaPrompt = computed(() =>
   buildIdeaPrompt(plans.value, presetId.value, tone.value),
@@ -128,6 +148,14 @@ export function choosePreset(id: UsePresetId): void {
   presetId.value = id;
   tone.value = findPreset(id).defaultTone;
   clearOverrides();
+}
+
+export function chooseStyle(next: StylePresetId): void {
+  stylePreset.value = next;
+}
+
+export function chooseGenerationMode(next: GenerationMode): void {
+  generationMode.value = next;
 }
 
 export function chooseTone(next: Tone): void {

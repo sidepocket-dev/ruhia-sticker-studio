@@ -70,9 +70,9 @@ test('シートごとの画像生成プロンプトが作られる', async ({ pa
   const prompt = page.locator('.sheet-prompts__item textarea').first();
 
   // 抽出しやすくするための指示が必ず入っている
-  await expect(prompt).toHaveValue(/幅広で完全に透明な隙間/);
-  await expect(prompt).toHaveValue(/背景、背景装飾、影は追加しないでください/);
-  await expect(prompt).toHaveValue(/衣装や体の特徴を変えないでください/);
+  await expect(prompt).toHaveValue(/幅広い完全透明の隙間/);
+  await expect(prompt).toHaveValue(/背景、床、背景装飾、背景色、影は追加しないでください/);
+  await expect(prompt).toHaveValue(/参照画像で確認できる外見、衣装、体の特徴を維持してください/);
 });
 
 test('ChatGPTの回答を貼り付けてセリフを差し替えられる', async ({ page }) => {
@@ -229,8 +229,54 @@ test('コピーした中身が画像生成プロンプトになっている', as
   await page.getByRole('button', { name: 'プロンプトをコピー' }).first().click();
 
   const copied = await page.evaluate(() => navigator.clipboard.readText());
-  expect(copied).toContain('幅広で完全に透明な隙間');
-  expect(copied).toContain('背景、背景装飾、影は追加しないでください');
+  expect(copied).toContain('幅広い完全透明の隙間');
+  expect(copied).toContain('背景、床、背景装飾、背景色、影は追加しないでください');
   expect(copied).toContain('「おはよう」');
   expect(copied).toContain('「またね」');
+});
+
+test('仕上がりを変えるとプロンプトが変わる', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: '文章を見る' }).first().click();
+  const prompt = page.locator('.sheet-prompts__item textarea').first();
+
+  // 標準では文字色を固定しない
+  await expect(prompt).not.toHaveValue(/カラフル/);
+
+  await page.getByRole('button', { name: '文字くっきり' }).click();
+  await expect(prompt).toHaveValue(/カラフル/);
+
+  await page.getByRole('button', { name: 'キャラクター重視' }).click();
+  await expect(prompt).toHaveValue(/キャラクターを主役/);
+  await expect(prompt).not.toHaveValue(/カラフル/);
+
+  await page.getByRole('button', { name: 'おまかせ' }).click();
+  await expect(prompt).not.toHaveValue(/キャラクターを主役/);
+});
+
+test('5枚まとめて頼むプロンプトを出せる', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: '40 個', exact: false }).first().click();
+
+  // 1枚のときは選べない（分ける意味がない）
+  await expect(page.getByRole('button', { name: '5枚まとめて頼む' })).toBeVisible();
+  await expect(page.locator('.sheet-prompts__item')).toHaveCount(5);
+
+  await page.getByRole('button', { name: '5枚まとめて頼む' }).click();
+  await expect(page.locator('.sheet-prompts__item')).toHaveCount(1);
+
+  // まとめて頼めないAIがあることを伝える
+  await expect(page.getByText('1枚しか返らないことがあります', { exact: false })).toBeVisible();
+
+  await page.getByRole('button', { name: '文章を見る' }).click();
+  const prompt = page.locator('.sheet-prompts__item textarea');
+  await expect(prompt).toHaveValue(/5セットを1枚の巨大な画像やコラージュにまとめないでください/);
+  await expect(prompt).toHaveValue(/# シート5/);
+  await expect(prompt).toHaveValue(/45種類を1枚の画像にまとめないでください/);
+});
+
+test('個数が1シートぶんのときは、まとめて頼む選択肢を出さない', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.getByRole('button', { name: '5枚まとめて頼む' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: /まとめて頼む/ })).toHaveCount(0);
 });

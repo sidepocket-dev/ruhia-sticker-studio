@@ -97,9 +97,9 @@ describe('画像生成プロンプト', () => {
 
   it('抽出しやすくするための指示が必ず入る', () => {
     // 実測で抽出の成否に直結する（PRODUCT_SPEC.md §10 / §77.4）
-    expect(prompt).toContain('幅広で完全に透明な隙間');
-    expect(prompt).toContain('接触または重ならない');
-    expect(prompt).toContain('背景、背景装飾、影は追加しないでください');
+    expect(prompt).toContain('幅広い完全透明の隙間');
+    expect(prompt).toContain('接触・重複させないでください');
+    expect(prompt).toContain('背景、床、背景装飾、背景色、影は追加しないでください');
     expect(prompt).toContain('3×3');
     expect(prompt).toContain('正方形（1:1）');
   });
@@ -114,13 +114,13 @@ describe('画像生成プロンプト', () => {
     // 1つの連結領域にするため抽出も安定する。
     // 背景が不透明な画像では白い縁と白い背景を色で区別できないので、
     // 後から描き足すのではなく生成時に付けてもらう（PRODUCT_SPEC.md §10）
-    expect(prompt).toContain('白い縁を付けてください');
+    expect(prompt).toContain('白い縁を設けてください');
   });
 
   it('キャラクターの見た目を勝手に文章化しない', () => {
     // 参照画像が正（PRODUCT_SPEC.md §18）
-    expect(prompt).toContain('添付画像のとおり');
-    expect(prompt).toContain('衣装や体の特徴を変えないでください');
+    expect(prompt).toContain('添付画像のキャラクターをそのまま使用してください');
+    expect(prompt).toContain('参照画像で確認できる外見、衣装、体の特徴を維持してください');
   });
 
   it('番号は1〜9でふり直される（シートごとに独立）', () => {
