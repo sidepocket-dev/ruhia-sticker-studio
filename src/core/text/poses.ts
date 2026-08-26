@@ -34,6 +34,10 @@ export interface PoseDesign {
  *
  * 小道具に衣装・体の特徴を含めないのは、参照画像がキャラクター外見の正であり、
  * 言語化するとそこからずれるため（PRODUCT_SPEC.md §18）。
+ *
+ * 相手が必要な動作は使わない。実測で「背中を押す」と指示したところ、
+ * 押される相手としてキャラクターが2体描かれた。
+ * スタンプは1体で成立する動作でなければならない。
  */
 export const POSE_DESIGNS: readonly PoseDesign[] = [
   // ── 1周目（シート1枚目） ──
@@ -59,20 +63,20 @@ export const POSE_DESIGNS: readonly PoseDesign[] = [
   { emotion: '名残おしそうな', pose: '振り返る', composition: 'side' },
 
   // ── 3周目（シート3枚目） ──
-  { emotion: 'にこやかな', pose: '両手を広げて迎える', composition: 'front' },
+  { emotion: 'にこやかな', pose: '両手を大きく広げる', composition: 'front' },
   { emotion: '納得した', pose: '大きくうなずく', composition: 'angle' },
   { emotion: '照れた', pose: '頭をかきながら笑う', composition: 'angle' },
   { emotion: '反省した', pose: '手を合わせてあやまる', composition: 'front' },
   { emotion: '感激した', pose: '目を輝かせる', composition: 'front' },
   { emotion: '疲れた', pose: '机に突っ伏す', composition: 'side', prop: '机' },
-  { emotion: 'やさしい', pose: '背中を押す', composition: 'side' },
+  { emotion: 'やさしい', pose: '手をたたいて応援する', composition: 'side' },
   { emotion: '準備をする', pose: '荷物を持ち上げる', composition: 'angle', prop: '荷物' },
   { emotion: 'さみしそうな', pose: '手を振りながら歩き出す', composition: 'side' },
 
   // ── 4周目（シート4枚目） ──
   { emotion: '元気いっぱいの', pose: '飛び跳ねてあいさつする', composition: 'angle' },
   { emotion: 'きりっとした', pose: 'メモ帳に書きこむ', composition: 'front', prop: 'メモ帳' },
-  { emotion: 'ほっこりした', pose: '花束を差し出す', composition: 'front', prop: '花束' },
+  { emotion: 'ほっこりした', pose: '花束をかかげる', composition: 'front', prop: '花束' },
   { emotion: 'あわてた', pose: '頭を下げながら走る', composition: 'side' },
   { emotion: 'はしゃいだ', pose: 'くるくる回る', composition: 'angle' },
   { emotion: '泣きそうな', pose: 'ハンカチで涙をぬぐう', composition: 'front', prop: 'ハンカチ' },
@@ -83,11 +87,11 @@ export const POSE_DESIGNS: readonly PoseDesign[] = [
   // ── 5周目（シート5枚目） ──
   { emotion: '落ち着いた', pose: '会釈する', composition: 'side' },
   { emotion: 'ひらめいた', pose: '指を立てる', composition: 'angle' },
-  { emotion: '満面の笑みの', pose: '抱きしめるしぐさをする', composition: 'front' },
+  { emotion: '満面の笑みの', pose: '両手でハートの形をつくる', composition: 'front' },
   { emotion: 'しょんぼりした', pose: 'うつむく', composition: 'side' },
   { emotion: 'しあわせそうな', pose: 'ほおに手をあてて笑う', composition: 'angle' },
   { emotion: 'ぐったりした', pose: '座り込む', composition: 'front' },
-  { emotion: '前向きな', pose: '手を差し伸べる', composition: 'angle' },
+  { emotion: '前向きな', pose: '胸をたたいて見せる', composition: 'angle' },
   { emotion: '出発する', pose: '傘をさして歩く', composition: 'side', prop: '傘' },
   { emotion: 'おやすみ前の', pose: '毛布にくるまる', composition: 'angle', prop: '毛布' },
 ];

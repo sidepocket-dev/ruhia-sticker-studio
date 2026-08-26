@@ -32,7 +32,12 @@ export function readPixels(sheet: LoadedSheet): PixelBuffer {
  * シートの一部を切り出して、指定した長辺に収まる縮小画像のURLを作る。
  * 一覧表示用。元のビットマップは保持したまま、必要な分だけ描き出す。
  */
-export function cropToObjectUrl(sheet: LoadedSheet, region: Rect, maxSide: number): string {
+export function cropToObjectUrl(
+  sheet: LoadedSheet,
+  region: Rect,
+  maxSide: number,
+  excludeRects: readonly Rect[] = [],
+): string {
   const scale = Math.min(1, maxSide / Math.max(region.width, region.height));
   const width = Math.max(1, Math.round(region.width * scale));
   const height = Math.max(1, Math.round(region.height * scale));
@@ -43,6 +48,29 @@ export function cropToObjectUrl(sheet: LoadedSheet, region: Rect, maxSide: numbe
 
   context.imageSmoothingEnabled = true;
   context.imageSmoothingQuality = 'high';
+
+  // 別のスタンプが写り込む場合は、元の大きさで消してから縮小する
+  const source = excludeRects.length === 0 ? sheet.bitmap : cleanRegion(sheet, region, excludeRects);
+  const sourceX = excludeRects.length === 0 ? region.x : 0;
+  const sourceY = excludeRects.length === 0 ? region.y : 0;
+
+  context.drawImage(source, sourceX, sourceY, region.width, region.height, 0, 0, width, height);
+
+  const imageData = context.getImageData(0, 0, width, height);
+  const bytes = encodePng({ data: imageData.data, width, height });
+  return URL.createObjectURL(new Blob([bytes], { type: 'image/png' }));
+}
+
+/** 別のスタンプの画素を消した、元の大きさの切り出しを作る。 */
+function cleanRegion(
+  sheet: LoadedSheet,
+  region: Rect,
+  excludeRects: readonly Rect[],
+): OffscreenCanvas {
+  const canvas = new OffscreenCanvas(region.width, region.height);
+  const context = canvas.getContext('2d', { willReadFrequently: true });
+  if (!context) throw new Error('画像を作れませんでした');
+
   context.drawImage(
     sheet.bitmap,
     region.x,
@@ -51,11 +79,11 @@ export function cropToObjectUrl(sheet: LoadedSheet, region: Rect, maxSide: numbe
     region.height,
     0,
     0,
-    width,
-    height,
+    region.width,
+    region.height,
   );
-
-  const imageData = context.getImageData(0, 0, width, height);
-  const bytes = encodePng({ data: imageData.data, width, height });
-  return URL.createObjectURL(new Blob([bytes], { type: 'image/png' }));
+  for (const rect of excludeRects) {
+    context.clearRect(rect.x - region.x, rect.y - region.y, rect.width, rect.height);
+  }
+  return canvas;
 }

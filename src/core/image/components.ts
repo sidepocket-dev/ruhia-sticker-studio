@@ -12,6 +12,22 @@ import type { AlphaMask, ConnectedComponent, Rect } from './types.js';
  * まとめ上げは grouping.ts が行う（PRODUCT_SPEC.md §14）。
  */
 export function extractComponents(mask: AlphaMask, minArea: number): ConnectedComponent[] {
+  return labelComponents(mask, minArea).components;
+}
+
+export interface LabelledComponents {
+  components: ConnectedComponent[];
+  /** 画素ごとの所属。0 はどこにも属さない（透明）。 */
+  labels: Int32Array;
+}
+
+/**
+ * 連結領域を取り出し、画素ごとの所属も返す。
+ *
+ * 所属が分かると、あるスタンプの切り出し範囲に入り込んだ
+ * 別のスタンプの画素を、正確に消せる。
+ */
+export function labelComponents(mask: AlphaMask, minArea: number): LabelledComponents {
   const { data, width, height } = mask;
   const labels = new Int32Array(width * height);
   const parent: number[] = [0]; // 0 は「ラベルなし」
@@ -116,9 +132,16 @@ export function extractComponents(mask: AlphaMask, minArea: number): ConnectedCo
     });
   }
 
+  // 面積が足りない領域は所属なしへ戻す
+  const kept = new Set(components.map((component) => component.id));
+  for (let i = 0; i < labels.length; i++) {
+    const label = labels[i] ?? 0;
+    if (label !== 0 && !kept.has(label)) labels[i] = 0;
+  }
+
   // 大きいものから。以降の処理で「本体」を先に扱えるようにする
   components.sort((left, right) => right.area - left.area);
-  return components;
+  return { components, labels };
 }
 
 /** 2つの矩形の最短距離。触れていれば0。 */

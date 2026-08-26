@@ -59,6 +59,11 @@ export interface StickerRegion {
   contentBounds: Rect;
   /** 0.0 - 1.0。低いものだけユーザーに確認を促す。 */
   confidence: number;
+  /**
+   * 切り出し範囲に入り込んだ、別のスタンプの画素を消すための矩形（シート上の座標）。
+   * 範囲どうしが噛み合ったときだけ入る。通常は空。
+   */
+  excludeRects?: Rect[];
 }
 
 /** どちらの方式で抽出したか。UIには表示しない (PRODUCT_SPEC.md §11)。 */

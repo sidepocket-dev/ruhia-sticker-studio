@@ -108,6 +108,30 @@ describe('ポーズ設計', () => {
     expect(new Set(props).size, `重複した小道具がある: ${props.join(', ')}`).toBe(props.length);
   });
 
+  it('相手が必要な動作を使わない', () => {
+    // 実測で「背中を押す」と指示したところ、押される相手として
+    // キャラクターが2体描かれた。スタンプは1体で成立する動作にする
+    const needsSomeoneElse = [
+      '背中を押す',
+      '抱きしめ',
+      '差し伸べ',
+      '差し出す',
+      '迎える',
+      '手をつな',
+      '肩を組',
+      '一緒に',
+      '二人',
+      'ふたり',
+      '相手',
+      '握手',
+    ];
+    for (const design of POSE_DESIGNS) {
+      for (const word of needsSomeoneElse) {
+        expect(design.pose, `「${design.pose}」は相手が要る`).not.toContain(word);
+      }
+    }
+  });
+
   it('小道具に衣装や体の特徴を含めない', () => {
     // 参照画像がキャラクター外見の正（PRODUCT_SPEC.md §18）
     const forbidden = ['服', '帽子', 'シャツ', 'スカート', '靴', '髪', '目', '手', '顔', '制服'];

@@ -104,6 +104,11 @@ describe('画像生成プロンプト', () => {
     expect(prompt).toContain('正方形（1:1）');
   });
 
+  it('1体だけ描くよう伝える', () => {
+    // 相手が必要な動作を指示すると2体描かれることがあった
+    expect(prompt).toContain('キャラクターを1体だけ描いてください');
+  });
+
   it('キャラクターの見た目を勝手に文章化しない', () => {
     // 参照画像が正（PRODUCT_SPEC.md §18）
     expect(prompt).toContain('添付画像のとおり');

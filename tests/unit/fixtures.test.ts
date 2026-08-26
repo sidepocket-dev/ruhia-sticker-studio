@@ -14,6 +14,8 @@ import expectedD from '../fixtures/sheet-d.expected.json' with { type: 'json' };
 import expectedE from '../fixtures/sheet-e.expected.json' with { type: 'json' };
 import expectedF from '../fixtures/sheet-f.expected.json' with { type: 'json' };
 import expected1 from '../fixtures/sheet-1.expected.json' with { type: 'json' };
+import expected2 from '../fixtures/sheet-2.expected.json' with { type: 'json' };
+import expected3 from '../fixtures/sheet-3.expected.json' with { type: 'json' };
 
 /**
  * 実際のAI生成シートでの回帰テスト。
@@ -72,6 +74,20 @@ const FIXTURES = [
     expected: expected1,
     description: 'このツールの計画から作った日常用の1枚目',
     strategy: expected1.strategy as DetectionStrategy,
+  },
+  {
+    id: '2',
+    file: 'sheet-2.png',
+    expected: expected2,
+    description: 'このツールの計画から作った日常用の2枚目',
+    strategy: expected2.strategy as DetectionStrategy,
+  },
+  {
+    id: '3',
+    file: 'sheet-3.png',
+    expected: expected3,
+    description: 'このツールの計画から作った日常用の3枚目（範囲が噛み合う）',
+    strategy: expected3.strategy as DetectionStrategy,
   },
 ];
 
@@ -175,5 +191,56 @@ describe('計画から作ったシートとの対応', () => {
       0, 1, 2, 3, 4, 5, 6, 7, 8,
     ]);
     expect(outcome.result.regions).toHaveLength(planned.length);
+  });
+});
+
+/**
+ * sheet-3 は、外接矩形どうしが噛み合った初めての実例。
+ *
+ * 「めっちゃうれしい」の足先と「準備するね」の吹き出しの上端が6行ぶん重なり、
+ * そのままでは切り出し画像の下端に吹き出しの輪郭が写り込んだ。
+ * 白フチ付きのシートでは1スタンプが1つの連結領域になるため、
+ * 矩形では消せず、画素の所属を見て消す必要がある。
+ */
+describe('範囲が噛み合うシートの写り込み除去', () => {
+  const buffer = loadPng(new URL('../fixtures/sheet-3.png', import.meta.url).pathname);
+  const outcome = detectStickers(buffer);
+
+  it('噛み合った2個にだけ、消す矩形が付く', () => {
+    expect(outcome.ok).toBe(true);
+    if (!outcome.ok) return;
+
+    const withExclude = outcome.result.regions.filter(
+      (region) => (region.excludeRects ?? []).length > 0,
+    );
+    expect(withExclude.map((region) => region.cellIndex)).toEqual([4, 7]);
+  });
+
+  it('消す量はごく一部にとどまる', () => {
+    expect(outcome.ok).toBe(true);
+    if (!outcome.ok) return;
+
+    for (const region of outcome.result.regions) {
+      const erased = (region.excludeRects ?? []).reduce(
+        (sum, rect) => sum + rect.width * rect.height,
+        0,
+      );
+      const own = region.contentBounds.width * region.contentBounds.height;
+      expect(erased / own, `スタンプ ${region.cellIndex + 1}`).toBeLessThan(0.01);
+    }
+  });
+
+  it('消す矩形は、自分の切り出し範囲の中に収まる', () => {
+    expect(outcome.ok).toBe(true);
+    if (!outcome.ok) return;
+
+    for (const region of outcome.result.regions) {
+      for (const rect of region.excludeRects ?? []) {
+        expect(rect.x).toBeGreaterThanOrEqual(region.bounds.x);
+        expect(rect.y).toBeGreaterThanOrEqual(region.bounds.y);
+        expect(rect.x + rect.width).toBeLessThanOrEqual(region.bounds.x + region.bounds.width);
+        expect(rect.y + rect.height).toBeLessThanOrEqual(region.bounds.y + region.bounds.height);
+      }
+    }
   });
 });

@@ -185,7 +185,12 @@ function stickerLayouts(selection: ExtractedSticker[]): ImageLayout[] {
 function renderSticker(sticker: ExtractedSticker, layout: ImageLayout): Bytes | null {
   const source = getSheetSource(sticker.sheetId);
   if (!source) return null;
-  return renderToPng(source, sticker.region.contentBounds, layout);
+  return renderToPng(
+    source,
+    sticker.region.contentBounds,
+    layout,
+    sticker.region.excludeRects ?? [],
+  );
 }
 
 let previewGeneration = 0;

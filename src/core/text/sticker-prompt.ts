@@ -9,6 +9,9 @@ import type { StickerPlan } from './plan.js';
  * （隙間の広いシートは単純分割で取り出せ、そうでないシートは
  * 高度な解析が必要になる。PRODUCT_SPEC.md §10 / §77.4）。
  *
+ * 「キャラクターを1体だけ」も必ず入れる。実測で、相手が必要な動作を指示すると
+ * キャラクターが2体描かれることがあった。
+ *
  * この文面が必ず成功すると表現してはならない。あくまで推奨（§34）。
  */
 export function buildStickerPrompt(plans: StickerPlan[]): string {
@@ -30,6 +33,7 @@ export function buildStickerPrompt(plans: StickerPlan[]): string {
     '',
     'キャラクターの見た目は添付画像のとおりにしてください。',
     '衣装や体の特徴を変えないでください。',
+    '各ステッカーには、キャラクターを1体だけ描いてください。',
     '',
     'ステッカーの間には、幅広で完全に透明な隙間を設けてください。',
     '各ステッカーはそれぞれ独立させ、',

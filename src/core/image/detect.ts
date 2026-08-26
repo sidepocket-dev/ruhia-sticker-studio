@@ -1,7 +1,8 @@
 import { IMAGE_CONFIG } from '../../config/app-config.js';
 import { STICKERS_PER_SHEET } from '../../config/line-spec.js';
 import { toAlphaMask } from './alpha-mask.js';
-import { extractComponents } from './components.js';
+import { labelComponents } from './components.js';
+import { buildExcludeRects } from './exclude.js';
 import { cellsFromGridLines, findGridLines } from './gutter-split.js';
 import { computeCellPriors, groupComponents } from './grouping.js';
 import { computeProfile } from './profile.js';
@@ -121,7 +122,7 @@ export function trySmartDetection(
     1,
     Math.round(mask.width * mask.height * options.minComponentAreaRatio),
   );
-  const components = extractComponents(mask, minArea);
+  const { components, labels } = labelComponents(mask, minArea);
   const priors = computeCellPriors(contentBounds);
   const outcome = groupComponents(components, priors);
 
@@ -140,13 +141,23 @@ export function trySmartDetection(
     // 安全余白は、隣のスタンプの範囲へ入らない分だけ足す
     const others = rawBounds.filter((_, other) => other !== index);
     const margin = safeMarginWithout(group.bounds, others, options.safeMarginPx);
+    const bounds = expandRect(group.bounds, margin, sheetBounds);
 
-    return {
+    const region: StickerRegion = {
       cellIndex: group.cellIndex,
-      bounds: expandRect(group.bounds, margin, sheetBounds),
+      bounds,
       contentBounds: group.bounds,
       confidence: smartConfidenceFor(group.bounds, others, sheetBounds, medianArea),
     };
+
+    // 範囲が噛み合っている場合だけ、相手の画素を消す矩形を作る
+    if (others.some((other) => intersectionArea(bounds, other) > 0)) {
+      const ownLabels = new Set(group.members.map((member) => member.id));
+      const excludeRects = buildExcludeRects(labels, mask.width, bounds, ownLabels);
+      if (excludeRects.length > 0) region.excludeRects = excludeRects;
+    }
+
+    return region;
   });
 
   return {

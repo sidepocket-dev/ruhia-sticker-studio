@@ -133,7 +133,7 @@ async function importOne(file: File): Promise<ImportResult> {
         id: `${sheetId}-${region.cellIndex}`,
         sheetId,
         region,
-        previewUrl: cropToObjectUrl(source, region.bounds, PREVIEW_MAX_SIDE),
+        previewUrl: cropToObjectUrl(source, region.bounds, PREVIEW_MAX_SIDE, region.excludeRects ?? []),
       });
     }
 
