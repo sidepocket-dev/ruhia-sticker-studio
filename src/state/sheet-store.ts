@@ -1,13 +1,12 @@
 import { computed, signal } from '@preact/signals';
-import { IMAGE_CONFIG } from '../config/app-config.js';
-import { toAlphaMask, transparentRatio } from '../core/image/alpha-mask.js';
 import type { DetectFailure } from '../core/image/detect.js';
 import { toBlob } from '../core/project.js';
 import type { StoredImage, StoredSheet } from '../core/project.js';
-import type { DetectionStrategy, StickerRegion } from '../core/image/types.js';
+import { removeBackground } from '../core/image/background.js';
+import type { DetectionStrategy, PixelBuffer, StickerRegion } from '../core/image/types.js';
 import { ACCEPTED_TYPES, cropToObjectUrl, loadSheet, readPixels } from '../platform/decode.js';
 import type { LoadedSheet } from '../platform/decode.js';
-import { detectSheet } from '../platform/worker/client.js';
+import { prepareInWorker } from '../platform/worker/client.js';
 
 /** 一覧表示用の縮小サイズ。LINEの規格とは無関係。 */
 const PREVIEW_MAX_SIDE = 300;
@@ -25,6 +24,8 @@ export interface SheetEntry {
   name: string;
   strategy: DetectionStrategy;
   stickers: ExtractedSticker[];
+  /** 背景を抜いて使っているか。表示と保存で使う */
+  backgroundRemoved: boolean;
 }
 
 /** 読み込めなかったシート。1枚失敗しても他は残す。 */
@@ -32,6 +33,8 @@ export interface SheetProblem {
   name: string;
   message: string;
   hint: string;
+  /** 背景を抜けば読み込めるかもしれない場合に立てる */
+  canRemoveBackground?: boolean;
 }
 
 export type SheetStatus = 'empty' | 'working' | 'ready';
@@ -50,6 +53,8 @@ export const candidates = computed<ExtractedSticker[]>(() =>
 const bitmaps = new Map<number, LoadedSheet>();
 /** 保存のために、読み込んだ画像そのものも持っておく（PRODUCT_SPEC.md §51）。 */
 const images = new Map<number, StoredImage>();
+/** 読み込めなかったファイル。背景を抜いてやり直せるように持っておく */
+const pending = new Map<string, File>();
 let nextSheetId = 1;
 
 export function getSheetSource(sheetId: number): LoadedSheet | undefined {
@@ -61,11 +66,15 @@ export function getSheetImage(sheetId: number): StoredImage | undefined {
 }
 
 /** 複数のシートをまとめて読み込む。1枚ずつ順に処理してメモリを抑える。 */
-export async function importSheets(files: File[]): Promise<void> {
+export async function importSheets(
+  files: File[],
+  options: { allowBackgroundRemoval?: boolean } = {},
+): Promise<void> {
   if (files.length === 0) return;
 
   status.value = 'working';
   problems.value = [];
+  for (const file of files) pending.set(file.name, file);
 
   for (let index = 0; index < files.length; index++) {
     const file = files[index];
@@ -76,7 +85,7 @@ export async function importSheets(files: File[]): Promise<void> {
         ? `${index + 1}枚目を読み込んでいます…（全${files.length}枚）`
         : '画像を読み込んでいます…';
 
-    const result = await importOne(file);
+    const result = await importOne(file, options.allowBackgroundRemoval ?? false);
     if (!result.ok) {
       problems.value = [...problems.value, result.problem];
     } else {
@@ -90,7 +99,7 @@ export async function importSheets(files: File[]): Promise<void> {
 
 type ImportResult = { ok: true; entry: SheetEntry } | { ok: false; problem: SheetProblem };
 
-async function importOne(file: File): Promise<ImportResult> {
+async function importOne(file: File, allowBackgroundRemoval: boolean): Promise<ImportResult> {
   if (!ACCEPTED_TYPES.includes(file.type)) {
     return {
       ok: false,
@@ -102,57 +111,72 @@ async function importOne(file: File): Promise<ImportResult> {
     };
   }
 
+  let source: LoadedSheet | null = null;
   try {
-    const source = await loadSheet(file);
+    source = await loadSheet(file);
     const pixels = readPixels(source);
+    const reply = await prepareInWorker(pixels, allowBackgroundRemoval);
 
-    const mask = toAlphaMask(pixels, IMAGE_CONFIG.alphaThreshold);
-    if (transparentRatio(mask) < IMAGE_CONFIG.minTransparentRatio) {
+    if (reply.status === 'needs-background-removal') {
       source.bitmap.close();
       return {
         ok: false,
         problem: {
           name: file.name,
           message: '背景が透明ではありません。',
-          hint: 'このツールは背景が透明な画像から、スタンプを1個ずつ取り出します。背景を透明にした画像をご用意ください。',
+          hint: 'このツールは背景が透明な画像から、スタンプを1個ずつ取り出します。背景を抜いてみることもできます。',
+          canRemoveBackground: true,
         },
       };
     }
 
-    const outcome = await detectSheet(pixels);
-    if (!outcome.ok) {
+    if (!reply.outcome || !reply.outcome.ok) {
       source.bitmap.close();
       return {
         ok: false,
         problem: {
           name: file.name,
           message: 'スタンプの位置をうまく判定できませんでした。',
-          hint: hintFor(outcome.reason),
+          hint: reply.outcome ? hintFor(reply.outcome.reason) : '別の画像でお試しください。',
         },
       };
     }
 
+    // 背景を抜いた場合は、抜いたあとの画像を切り出しに使う
+    const working = reply.processed
+      ? await fromPixels(reply.processed, file.name)
+      : source;
+    if (reply.processed) source.bitmap.close();
+
     const sheetId = nextSheetId++;
-    bitmaps.set(sheetId, source);
+    bitmaps.set(sheetId, working);
+    // 保存するのは抜く前の画像。いつでも戻せるようにする（PRODUCT_SPEC.md §9.4）
     images.set(sheetId, { bytes: await file.arrayBuffer(), type: file.type });
 
     const stickers: ExtractedSticker[] = [];
-    for (const region of outcome.result.regions) {
+    for (const region of reply.outcome.result.regions) {
       stickers.push({
         id: `${sheetId}-${region.cellIndex}`,
         sheetId,
         region,
-        previewUrl: cropToObjectUrl(source, region.bounds, PREVIEW_MAX_SIDE, region.excludeRects ?? []),
+        previewUrl: cropToObjectUrl(working, region.bounds, PREVIEW_MAX_SIDE, region.excludeRects ?? []),
       });
     }
 
     return {
       ok: true,
-      entry: { id: sheetId, name: file.name, strategy: outcome.result.strategy, stickers },
+      entry: {
+        id: sheetId,
+        name: file.name,
+        strategy: reply.outcome.result.strategy,
+        stickers,
+        backgroundRemoved: reply.processed !== null,
+      },
     };
   } catch (cause) {
     // ユーザーには平易な文言だけを見せ、原因は開発者コンソールへ残す
     console.error('[RUHiA Sticker Studio] シートの読み込みに失敗しました', cause);
+    source?.bitmap.close();
     return {
       ok: false,
       problem: {
@@ -162,6 +186,24 @@ async function importOne(file: File): Promise<ImportResult> {
       },
     };
   }
+}
+
+/**
+ * 画素から、切り出しに使えるビットマップを作る。
+ *
+ * ImageData は ArrayBuffer 上の Uint8ClampedArray しか受け取らないため、
+ * 型を揃えてから渡す（外部から来たバッファは SharedArrayBuffer の可能性を含む型になる）。
+ */
+async function fromPixels(pixels: PixelBuffer, name: string): Promise<LoadedSheet> {
+  const data = new Uint8ClampedArray(pixels.data.length);
+  data.set(pixels.data);
+  const bitmap = await createImageBitmap(new ImageData(data, pixels.width, pixels.height));
+  return { name, bitmap, width: pixels.width, height: pixels.height };
+}
+
+async function fromBlob(blob: Blob, name: string): Promise<LoadedSheet> {
+  const bitmap = await createImageBitmap(blob);
+  return { name, bitmap, width: bitmap.width, height: bitmap.height };
 }
 
 /** 判定できなかった理由ごとの案内。技術用語は使わない（PRODUCT_SPEC.md §63）。 */
@@ -202,6 +244,14 @@ export function dismissProblems(): void {
   problems.value = [];
 }
 
+/** 背景を抜いて、もう一度読み込み直す。 */
+export async function retryWithBackgroundRemoval(name: string): Promise<void> {
+  const file = pending.get(name);
+  if (!file) return;
+  problems.value = problems.value.filter((problem) => problem.name !== name);
+  await importSheets([file], { allowBackgroundRemoval: true });
+}
+
 /**
  * 保存しておいたシートを復元する。
  *
@@ -216,13 +266,17 @@ export async function restoreSheets(stored: StoredSheet[]): Promise<void> {
   const restored: SheetEntry[] = [];
   for (const entry of stored) {
     try {
-      const bitmap = await createImageBitmap(toBlob(entry.image));
-      const source: LoadedSheet = {
-        name: entry.name,
-        bitmap,
-        width: bitmap.width,
-        height: bitmap.height,
-      };
+      let source = await fromBlob(toBlob(entry.image), entry.name);
+
+      // 背景を抜いて使っていたシートは、同じ処理をやり直す。
+      // 抜いた結果は保存していない（元画像だけを保存している）ため
+      if (entry.backgroundRemoved === true) {
+        const removed = removeBackground(readPixels(source));
+        const processed = await fromPixels(removed.buffer, entry.name);
+        source.bitmap.close();
+        source = processed;
+      }
+
       bitmaps.set(entry.id, source);
       images.set(entry.id, entry.image);
       nextSheetId = Math.max(nextSheetId, entry.id + 1);
@@ -231,6 +285,7 @@ export async function restoreSheets(stored: StoredSheet[]): Promise<void> {
         id: entry.id,
         name: entry.name,
         strategy: entry.strategy,
+        backgroundRemoved: entry.backgroundRemoved === true,
         stickers: entry.regions.map((region) => ({
           id: `${entry.id}-${region.cellIndex}`,
           sheetId: entry.id,
@@ -256,6 +311,7 @@ export function resetAll(): void {
   }
   bitmaps.clear();
   images.clear();
+  pending.clear();
   sheets.value = [];
   problems.value = [];
   progressMessage.value = '';

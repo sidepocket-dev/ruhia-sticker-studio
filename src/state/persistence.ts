@@ -36,6 +36,7 @@ export function captureSnapshot(): ProjectSnapshot {
       strategy: sheet.strategy,
       regions: sheet.stickers.map((sticker) => sticker.region),
       image,
+      backgroundRemoved: sheet.backgroundRemoved,
     });
   }
 

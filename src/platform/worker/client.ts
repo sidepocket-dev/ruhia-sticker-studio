@@ -1,8 +1,18 @@
 import DetectWorker from './detect.worker.ts?worker&inline';
-import { detectStickers } from '../../core/image/detect.js';
+import { DEFAULT_PREPARE_OPTIONS, prepareSheet } from '../../core/image/prepare.js';
+import type { PrepareStatus } from '../../core/image/prepare.js';
 import type { DetectOutcome } from '../../core/image/detect.js';
 import type { PixelBuffer } from '../../core/image/types.js';
 import type { DetectRequest, DetectResponse } from './detect.worker.js';
+
+/** 前処理の結果。背景を抜いた場合は、抜いたあとの画素も返る。 */
+export interface PrepareReply {
+  status: PrepareStatus;
+  outcome: DetectOutcome | null;
+  /** 背景を抜いた場合だけ入る */
+  processed: PixelBuffer | null;
+  warnings: string[];
+}
 
 /**
  * 解析を別スレッドで行う。大きなシートでも画面が固まらないようにするため。
@@ -20,25 +30,38 @@ function getWorker(): Worker {
 }
 
 /**
- * 解析する。別スレッドが使えない環境では同じ処理をこのスレッドで行う。
+ * シートを前処理する。別スレッドが使えない環境では、同じ処理をこのスレッドで行う。
  *
- * 環境によっては Worker を起動できないことがあるが、解析自体は同じ純粋関数なので
+ * 環境によっては Worker を起動できないことがあるが、処理自体は同じ純粋関数なので
  * 結果は変わらない。動かないより、少し待たせてでも動くほうを選ぶ。
  */
-export async function detectSheet(buffer: PixelBuffer): Promise<DetectOutcome> {
-  if (!workerUsable) return detectStickers(buffer);
-
-  try {
-    return await detectInWorker(buffer);
-  } catch (cause) {
-    console.warn('[RUHiA Sticker Studio] 別スレッドを使えないため、この画面で処理します', cause);
-    workerUsable = false;
-    worker = null;
-    return detectStickers(buffer);
+export async function prepareInWorker(
+  buffer: PixelBuffer,
+  allowBackgroundRemoval: boolean,
+): Promise<PrepareReply> {
+  if (workerUsable) {
+    try {
+      return await requestFromWorker(buffer, allowBackgroundRemoval);
+    } catch (cause) {
+      console.warn('[RUHiA Sticker Studio] 別スレッドを使えないため、この画面で処理します', cause);
+      workerUsable = false;
+      worker = null;
+    }
   }
+
+  const result = prepareSheet(buffer, { ...DEFAULT_PREPARE_OPTIONS, allowBackgroundRemoval });
+  return {
+    status: result.status,
+    outcome: result.outcome,
+    processed: result.background === null ? null : result.buffer,
+    warnings: result.background?.warnings ?? [],
+  };
 }
 
-function detectInWorker(buffer: PixelBuffer): Promise<DetectOutcome> {
+function requestFromWorker(
+  buffer: PixelBuffer,
+  allowBackgroundRemoval: boolean,
+): Promise<PrepareReply> {
   const id = nextId++;
   const instance = getWorker();
 
@@ -46,7 +69,12 @@ function detectInWorker(buffer: PixelBuffer): Promise<DetectOutcome> {
     const onMessage = (event: MessageEvent<DetectResponse>): void => {
       if (event.data.id !== id) return;
       cleanup();
-      resolve(event.data.outcome);
+      resolve({
+        status: event.data.status,
+        outcome: event.data.outcome,
+        processed: event.data.processed,
+        warnings: event.data.warnings,
+      });
     };
     const onError = (event: ErrorEvent): void => {
       cleanup();
@@ -66,6 +94,7 @@ function detectInWorker(buffer: PixelBuffer): Promise<DetectOutcome> {
     const request: DetectRequest = {
       id,
       buffer: { data: copy, width: buffer.width, height: buffer.height },
+      allowBackgroundRemoval,
     };
     instance.postMessage(request, [copy.buffer]);
   });

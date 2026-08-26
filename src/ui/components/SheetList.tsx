@@ -21,6 +21,7 @@ export function SheetList() {
             <span class="sheet-list__name">{sheet.name}</span>
             <span class="sheet-list__count">
               {sheet.stickers.length}個 · {index * 9 + 1}〜{index * 9 + sheet.stickers.length}番
+              {sheet.backgroundRemoved && ' · 背景を抜きました'}
             </span>
           </span>
           <span class="sheet-list__actions">

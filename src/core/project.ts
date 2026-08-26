@@ -28,7 +28,14 @@ export interface StoredSheet {
   name: string;
   strategy: DetectionStrategy;
   regions: StickerRegion[];
+  /** 読み込んだ画像そのもの。背景を抜いた場合も、抜く前を保持する（§9.4） */
   image: StoredImage;
+  /**
+   * 背景を抜いて使っているか。
+   * 抜いた結果は保存せず、復元時に同じ処理をやり直す。
+   * 元画像を残しておけば、いつでも抜く前へ戻せる。
+   */
+  backgroundRemoved?: boolean;
 }
 
 export function toBlob(image: StoredImage): Blob {

@@ -1003,3 +1003,5 @@ body {
 .collapse__caret { flex: none; width: 14px; color: var(--text-muted); }
 .collapse__label { font-weight: 600; }
 .collapse__summary { color: var(--text-muted); font-size: 12px; }
+
+.problems li .button { margin-top: 8px; }

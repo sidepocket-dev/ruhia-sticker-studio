@@ -19,6 +19,7 @@ import {
   problems,
   progressMessage,
   resetAll,
+  retryWithBackgroundRemoval,
   sheets,
   status,
 } from '../state/sheet-store.js';
@@ -130,6 +131,15 @@ function ProblemList() {
             <strong>{problem.name}</strong>
             <span>{problem.message}</span>
             <span class="problems__hint">{problem.hint}</span>
+            {problem.canRemoveBackground === true && (
+              <button
+                type="button"
+                class="button button--quiet"
+                onClick={() => void retryWithBackgroundRemoval(problem.name)}
+              >
+                背景を抜いてみる
+              </button>
+            )}
           </li>
         ))}
       </ul>
