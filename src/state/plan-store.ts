@@ -44,13 +44,85 @@ export const ideaPrompt = computed(() =>
   buildIdeaPrompt(plans.value, presetId.value, tone.value),
 );
 
-/** 似ているセリフがあれば知らせる（PRODUCT_SPEC.md §29）。 */
+export interface DuplicateNotice {
+  text: string;
+  /** 重なっている枠の番号（1始まり） */
+  numbers: number[];
+  kind: 'same' | 'contained';
+}
+
+/**
+ * 似ているセリフがあれば知らせる（PRODUCT_SPEC.md §29）。
+ *
+ * 用意した表は確認済みなので、書き換えられたときだけ見る。
+ * 件数だけでなく、どの番号がどう重なっているかまで出す。
+ * 実際のAI出力では「ありがとうございます」が5つの枠に入っていたため、
+ * 番号が分からないと直しようがない。
+ */
+export const duplicateGroups = computed<DuplicateNotice[]>(() => {
+  if (Object.keys(textOverrides.value).length === 0) return [];
+
+  const list = plans.value;
+  return findDuplicates(list.map((plan) => plan.text)).map((group) => ({
+    text: group.indexes.map((index) => list[index]?.text ?? '').join(' / '),
+    numbers: group.indexes.map((index) => list[index]?.id ?? index + 1),
+    kind: group.kind,
+  }));
+});
+
 export const duplicateNotice = computed(() => {
-  const overrides = textOverrides.value;
-  // 用意した表は確認済みなので、書き換えられたときだけ見る
-  if (Object.keys(overrides).length === 0) return '';
+  if (Object.keys(textOverrides.value).length === 0) return '';
   return describeDuplicates(findDuplicates(plans.value.map((plan) => plan.text)));
 });
+
+/**
+ * まったく同じになっているセリフを、用意した表のものへ戻す。
+ *
+ * 全部戻すとAIに書かせた意味がなくなるので、重なっている枠だけを直す。
+ * 同じ言葉が複数の枠に入っている場合、最初の1つは残して残りを戻す。
+ *
+ * 1回では終わらない。戻した先のセリフが別の枠と重なることがあるため、
+ * 完全一致が無くなるまで繰り返す。
+ *
+ * 「似ている」だけの組（「ありがとう」と「ほんとにありがとう」など）は戻さない。
+ * 用意した表にも意図した使い分けとして入っており、消し切れないため。
+ */
+export function revertDuplicates(): void {
+  const base = buildPlans({
+    preset: presetId.value,
+    tone: tone.value,
+    targetCount: targetCount.value,
+  });
+  const baseById = new Map(base.map((plan) => [plan.id, plan.text]));
+  const ids = base.map((plan) => plan.id);
+
+  let current = { ...textOverrides.value };
+  const textsOf = (overrides: Record<number, string>): string[] =>
+    ids.map((id) => overrides[id] ?? baseById.get(id) ?? '');
+
+  // 戻した結果がまた重なることがあるので、変化しなくなるまで回す
+  for (let pass = 0; pass < ids.length; pass++) {
+    const exact = findDuplicates(textsOf(current)).filter((group) => group.kind === 'same');
+    if (exact.length === 0) break;
+
+    const next = { ...current };
+    for (const group of exact) {
+      // 最初の1つは残す
+      for (const index of group.indexes.slice(1)) {
+        const id = ids[index];
+        if (id === undefined) continue;
+        const original = baseById.get(id);
+        if (original !== undefined) next[id] = original;
+      }
+    }
+
+    const changed = ids.some((id) => next[id] !== current[id]);
+    if (!changed) break;
+    current = next;
+  }
+
+  textOverrides.value = current;
+}
 
 export function choosePreset(id: UsePresetId): void {
   presetId.value = id;

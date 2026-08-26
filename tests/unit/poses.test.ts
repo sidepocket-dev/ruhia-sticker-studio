@@ -9,6 +9,7 @@ import {
   roundAt,
 } from '../../src/core/text/categories.js';
 import { POSE_DESIGNS, poseAt } from '../../src/core/text/poses.js';
+import { describePose } from '../../src/core/text/plan.js';
 
 describe('スロットの構造', () => {
   it('カテゴリ数がシート1枚のスタンプ数と一致する', () => {
@@ -122,5 +123,48 @@ describe('ポーズ設計', () => {
     expect(poseAt(1)).toEqual(POSE_DESIGNS[0]);
     expect(poseAt(45)).toEqual(POSE_DESIGNS[44]);
     expect(() => poseAt(46)).toThrow();
+  });
+});
+
+describe('ポーズの説明文', () => {
+  it('表情が「様子」へつながる形になっている', () => {
+    // 「感動」のように名詞のままだと「感動様子で」と壊れる。
+    // 逆に「な」を機械的に足すと「明るいな様子で」と壊れる。
+    // どちらも避けるため、表情そのものを連体形で持つ決まりにしている。
+    // この文はユーザーの画面にも、画像生成AIへ渡す文章にも出る。
+    const validEndings = ['な', 'い', 'た', 'の', 'る', 'だ'];
+    for (const design of POSE_DESIGNS) {
+      const last = design.emotion.slice(-1);
+      expect(
+        validEndings,
+        `「${design.emotion}」は「様子」へつながらない（${describePose(design)}）`,
+      ).toContain(last);
+    }
+  });
+
+  it('「〜様子で〜する」の形になっている', () => {
+    for (const design of POSE_DESIGNS) {
+      const sentence = describePose(design);
+      expect(sentence, `「${sentence}」`).toContain('様子で');
+      expect(sentence.startsWith('様子で'), `「${sentence}」`).toBe(false);
+      expect(sentence.endsWith('様子で'), `「${sentence}」`).toBe(false);
+    }
+  });
+
+  it('同じ小物を説明文の中で繰り返さない', () => {
+    // ポーズ文に書いてある小物を、さらに付け足すと「傘をさして歩く、傘を添える」になる
+    for (const design of POSE_DESIGNS) {
+      if (!design.prop) continue;
+      const sentence = describePose(design);
+      const occurrences = sentence.split(design.prop).length - 1;
+      expect(occurrences, `「${sentence}」に「${design.prop}」が${occurrences}回`).toBe(1);
+    }
+  });
+
+  it('小物はポーズの文に書かれている', () => {
+    for (const design of POSE_DESIGNS) {
+      if (!design.prop) continue;
+      expect(design.pose, `${design.prop} が文に出てこない`).toContain(design.prop);
+    }
   });
 });

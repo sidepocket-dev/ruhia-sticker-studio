@@ -66,11 +66,15 @@ export function buildPlans(options: PlanOptions): StickerPlan[] {
   return plans;
 }
 
-/** ポーズ設計を、画像生成AIへ渡す1文にまとめる。 */
+/**
+ * ポーズ設計を、画像生成AIへ渡す1文にまとめる。
+ *
+ * emotion は「様子」へそのまま続く形で持っているので、機械的に「な」を足さない。
+ * 「明るいな様子で」のような壊れた日本語になり、これはユーザーにもAIにも渡る。
+ * 小物は pose 側の文に書き込んであるため、ここでは足さない。
+ */
 export function describePose(pose: PoseDesign): string {
-  const parts = [`${pose.emotion}な様子で${pose.pose}`];
-  if (pose.prop) parts.push(`${pose.prop}を添える`);
-  return parts.join('、');
+  return `${pose.emotion}様子で${pose.pose}`;
 }
 
 /** 計画をシートごとに分ける。 */

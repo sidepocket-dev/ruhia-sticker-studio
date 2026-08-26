@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 const FIXTURE = resolve(process.cwd(), 'tests/fixtures/sheet-a.png');
@@ -124,4 +125,46 @@ test('セリフ一覧を保存できる', async ({ page }) => {
     page.getByRole('button', { name: 'セリフ一覧を保存（texts.txt）' }).click(),
   ]);
   expect(download.suggestedFilename()).toBe('texts.txt');
+});
+
+/** 実際のChatGPTの回答（重複だらけ）を貼ったときの流れ。 */
+test('重複しているセリフを、番号つきで知らせて直せる', async ({ page }) => {
+  const answer = readFileSync(
+    resolve(process.cwd(), 'tests/fixtures/chatgpt-answer-business.txt'),
+    'utf8',
+  );
+
+  await page.goto('/');
+  await page.getByRole('button', { name: '40 個', exact: false }).first().click();
+  await page.getByRole('button', { name: 'ビジネス用', exact: false }).click();
+  await page.getByRole('button', { name: 'セリフをChatGPTに考えてもらう', exact: false }).click();
+
+  await page.locator('.idea__paste').fill(answer);
+  await page.getByRole('button', { name: 'このセリフを使う' }).click();
+
+  await expect(page.getByText('45件読み込みました')).toBeVisible();
+
+  // どの番号が重なっているかまで見せる
+  const notice = page.locator('.plan-list__notice');
+  await expect(notice).toBeVisible();
+  await expect(notice).toContainText('同じセリフが');
+  await expect(notice).toContainText('03、12、21、30、36、39番');
+
+  // 同じになっている分だけ、もとのセリフへ戻せる
+  await page.getByRole('button', { name: '同じになっている分を、もとのセリフに戻す' }).click();
+
+  // まったく同じセリフは無くなる
+  await expect(notice).not.toContainText('同じセリフが');
+  // 「似ている」だけの組は残りうる（用意した表にも意図した使い分けとして入っている）
+
+  // AIが書いた分は残っている
+  await expect(page.locator('.plan-list__text').first()).toHaveValue('よろしくお願いします');
+  // 重なっていた枠は用意したセリフに戻っている
+  await expect(page.locator('.plan-list__text').nth(11)).toHaveValue('助かります');
+
+  // 45件のうち大半はAIが書いたものが残る
+  const values = await page.locator('.plan-list__text').evaluateAll((nodes) =>
+    nodes.map((node) => (node as HTMLInputElement).value),
+  );
+  expect(values.filter((value) => value === 'ありがとうございます')).toHaveLength(1);
 });

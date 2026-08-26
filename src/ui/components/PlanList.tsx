@@ -1,6 +1,12 @@
 import { STICKERS_PER_SHEET } from '../../config/line-spec.js';
 import { targetCount } from '../../state/project.js';
-import { duplicateNotice, editText, planSheets } from '../../state/plan-store.js';
+import {
+  duplicateGroups,
+  duplicateNotice,
+  editText,
+  planSheets,
+  revertDuplicates,
+} from '../../state/plan-store.js';
 
 /** これから作る45個のセリフ一覧。その場で書き換えられる。 */
 export function PlanList() {
@@ -9,7 +15,22 @@ export function PlanList() {
 
   return (
     <div class="plan-list">
-      {duplicateNotice.value && <p class="plan-list__notice">{duplicateNotice.value}</p>}
+      {duplicateNotice.value && (
+        <div class="plan-list__notice">
+          <p>{duplicateNotice.value}</p>
+          <ul>
+            {duplicateGroups.value.map((group) => (
+              <li key={`${group.kind}-${group.numbers.join('-')}`}>
+                {group.numbers.map((number) => String(number).padStart(2, '0')).join('、')}番
+                　{group.text}
+              </li>
+            ))}
+          </ul>
+          <button type="button" class="button button--quiet" onClick={revertDuplicates}>
+            同じになっている分を、もとのセリフに戻す
+          </button>
+        </div>
+      )}
 
       {sheets.map((sheet, sheetIndex) => (
         <div key={sheetIndex} class="plan-list__sheet">
