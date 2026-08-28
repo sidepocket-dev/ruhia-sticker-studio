@@ -32,6 +32,13 @@ test('オフライン版が file:// から表示され、外部通信をしな�
 
   await expect(page.getByRole('heading', { name: 'RUHiA Sticker Studio' })).toBeVisible();
   await expect(page.getByText('画像はサーバーに送信されません。')).toBeVisible();
+
+  // タブのアイコンがHTMLの中に入っていること。
+  // 別ファイルにすると、HTML1枚で配ったときにアイコンだけ欠ける
+  const icon = await page.locator('link[rel="icon"]').getAttribute('href');
+  expect(icon, 'タブのアイコンがない').not.toBeNull();
+  expect(icon?.startsWith('data:image/'), 'アイコンが別ファイルになっている').toBe(true);
+
   expect(errors).toEqual([]);
   expect(externalRequests, `外部へのリクエストが発生しました:\n${externalRequests.join('\n')}`).toEqual([]);
 });
