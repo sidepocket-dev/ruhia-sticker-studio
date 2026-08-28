@@ -1062,13 +1062,7 @@ body {
 .style-chooser__item--on { border-color: var(--accent); background: var(--accent-soft); font-weight: 600; }
 .style-chooser__item:focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }
 
-.sheet-prompts__warn {
-  margin: 10px 0 0;
-  font-size: 12px;
-  color: var(--warn);
-}
-
-/* 途中で止まったときの逃げ道（§77.22）。
+/* 環境のおすすめと、失敗したときの逃げ道（§77.22）。
    ここで詰まると先へ進めないため、目立つところに置く */
 .continue-hint {
   margin-top: 10px;
@@ -1084,8 +1078,10 @@ body {
   line-height: 1.7;
 }
 
-.continue-hint .sheet-prompts__warn {
-  margin: 0;
+/* いちばん先に読んでほしいのは、どこで頼むか */
+.continue-hint__lead {
+  margin: 0 0 2px;
+  color: var(--warn);
 }
 
 

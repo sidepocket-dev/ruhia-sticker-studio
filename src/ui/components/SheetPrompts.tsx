@@ -115,11 +115,13 @@ function BatchPrompt({ count }: { count: number }) {
       </div>
       {open && <textarea readOnly rows={16} value={batchPrompt.value} />}
       <div class="continue-hint">
-        <p class="sheet-prompts__warn">
-          AIによっては、途中で止まったり、同じ絵ばかりになることがあります。
+        <p class="continue-hint__lead">
+          まとめて頼むときは、<strong>ブラウザで開いたChatGPT</strong>をおすすめします。
+          アプリのバージョンによっては、まとめての生成が失敗することがあります。
         </p>
         <p>
-          そのときは<strong>「1枚ずつ頼む」に切り替えて</strong>、
+          それでも途中で止まったり、同じ絵ばかりになるときは
+          <strong>「1枚ずつ頼む」に切り替えて</strong>、
           まだできていないシートだけを頼んでください。
           1枚ずつの文章には、そのシートの9種類が書いてあります。
         </p>

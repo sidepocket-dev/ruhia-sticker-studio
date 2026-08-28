@@ -265,9 +265,17 @@ test('5枚まとめて頼むプロンプトを出せる', async ({ page }) => {
   await page.getByRole('button', { name: '5枚まとめて頼む' }).click();
   await expect(page.locator('.sheet-prompts__item')).toHaveCount(1);
 
+  // どこで頼むかを、いちばん先に伝える
+  await expect(
+    page.getByText('ブラウザで開いたChatGPT', { exact: false }),
+  ).toBeVisible();
+  await expect(
+    page.getByText('まとめての生成が失敗することがあります', { exact: false }),
+  ).toBeVisible();
+
   // まとめて頼めないAIがあることを伝える
   await expect(
-    page.getByText('途中で止まったり、同じ絵ばかりになることがあります', { exact: false }),
+    page.getByText('途中で止まったり、同じ絵ばかりになるとき', { exact: false }),
   ).toBeVisible();
 
   // 失敗したときの逃げ道は「1枚ずつ頼む」。会話の続きで直そうとさせない
