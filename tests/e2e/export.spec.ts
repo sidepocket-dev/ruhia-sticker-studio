@@ -88,6 +88,40 @@ test('シートからLINE提出用ZIPを作れる', async ({ page }) => {
   expect(errors).toEqual([]);
 });
 
+/**
+ * タブ画像の調整が、提出データに反映されること。
+ *
+ * 画面のプレビューだけ変わって tab.png が変わらないと、
+ * 調整したつもりのまま提出してしまう。見た目のテストでは気づけない。
+ */
+test('タブ画像の大きさを変えると、提出するtab.pngも変わる', async ({ page }) => {
+  await page.goto('/');
+  await page.setInputFiles('input[type="file"]', FIXTURE);
+  await expect(page.getByRole('heading', { name: '9個のスタンプを見つけました' })).toBeVisible({
+    timeout: 15_000,
+  });
+
+  const exportZip = async (): Promise<Record<string, Uint8Array>> => {
+    const [download] = await Promise.all([
+      page.waitForEvent('download'),
+      page.getByRole('button', { name: 'LINE用データを作成' }).click(),
+    ]);
+    return unzipSync(new Uint8Array(readFileSync(await download.path())));
+  };
+
+  const before = (await exportZip())[SPEC.fileNames.tab];
+  await page.locator('.tab-adjuster__zoom input').fill('2.5');
+  const after = (await exportZip())[SPEC.fileNames.tab];
+
+  expect(before).toBeDefined();
+  expect(after).toBeDefined();
+  if (!before || !after) return;
+
+  // 中身が変わっていること。寸法は変わらない
+  expect(Buffer.from(after).equals(Buffer.from(before))).toBe(false);
+  expect(readPngInfo(after)).toMatchObject({ width: SPEC.tab.width, height: SPEC.tab.height });
+});
+
 /** 体格差が保たれていること（1枚ずつ最大化していないこと）。 */
 test('スタンプの大小関係が元のシートと同じ', async ({ page }) => {
   await page.goto('/');
