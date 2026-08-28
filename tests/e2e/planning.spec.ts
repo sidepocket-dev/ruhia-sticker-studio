@@ -272,12 +272,13 @@ test('5枚まとめて頼むプロンプトを出せる', async ({ page }) => {
   const prompt = page.locator('.sheet-prompts__item textarea');
 
   // 実機で5枚生成できた文面の要点
-  await expect(prompt).toHaveValue(/この1回の依頼で、必ず5枚の独立した画像を生成してください/);
-  await expect(prompt).toHaveValue(/- 画像5 = シート5/);
-  await expect(prompt).toHaveValue(/同じシートを重複して生成しないでください/);
-  await expect(prompt).toHaveValue(/シートを省略しないでください/);
+  await expect(prompt).toHaveValue(/この依頼では、画像を合計5枚生成してください/);
+  await expect(prompt).toHaveValue(/1回の画像生成で5シートを表現するのではありません/);
+  await expect(prompt).toHaveValue(/- 画像5 = シート5のみ/);
+  await expect(prompt).toHaveValue(/同じシートの別バージョンを複数生成しない/);
+  await expect(prompt).toHaveValue(/「どちらがいいですか」などの確認を行わない/);
   await expect(prompt).toHaveValue(/# シート5/);
-  await expect(prompt).toHaveValue(/出力は必ず合計5枚にしてください/);
+  await expect(prompt).toHaveValue(/1枚生成した時点で終了せず、必ず5枚すべて生成してください/);
   await expect(prompt).toHaveValue(/45種類を1枚の画像にまとめないでください/);
 });
 

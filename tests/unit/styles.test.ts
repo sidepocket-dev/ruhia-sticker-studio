@@ -60,10 +60,12 @@ describe('仕上がり設定', () => {
 });
 
 describe('まとめて頼むプロンプト', () => {
-  const prompt = buildBatchStickerPrompt(sheets, 'auto');
+  const prompt = buildBatchStickerPrompt(sheets, 'text');
 
   it('実機で5枚生成できた文面と、1文字も違わない', () => {
-    // 以前の文面では、同じシートが重複して2枚しか返らなかった。
+    // 以前の文面では2通りの失敗が起きた。
+    //   1. 同じシートが重複して2枚しか返らない
+    //   2. 同じ内容を2枚作り「どちらがいいですか」と聞いて止まる
     // この文面は実機で5枚すべて生成できたもの。勝手に変えない
     const template = readFileSync(
       new URL('../fixtures/batch-prompt-verified.md', import.meta.url).pathname,
@@ -84,39 +86,62 @@ describe('まとめて頼むプロンプト', () => {
     expect(prompt).toBe(expected);
   });
 
-  it('出力画像とシートの対応を、冒頭と末尾の2か所で示す', () => {
-    // これが無いと、同じシートが重複して返ることがあった
-    const occurrences = prompt.split('- 画像1 = シート1').length - 1;
-    expect(occurrences, '対応表が2か所に出る').toBe(2);
+  it('枚数ではなく、生成の手順として書く', () => {
+    // 「5枚ほしい」だけでは、1回の生成にまとめられてしまった
+    expect(prompt).toContain('【最重要：出力手順】');
+    expect(prompt).toContain('1回の画像生成で5シートを表現するのではありません。');
+    expect(prompt).toContain('1シートにつき1枚の独立した画像として順番に生成してください。');
+  });
+
+  it('出力単位を「画像N = シートNのみ」で示す', () => {
+    expect(prompt).toContain('出力単位は必ず以下です。');
     for (let sheet = 1; sheet <= 5; sheet++) {
-      expect(prompt).toContain(`- 画像${sheet} = シート${sheet}`);
+      expect(prompt).toContain(`- 画像${sheet} = シート${sheet}のみ`);
     }
   });
 
-  it('重複・省略・混在を、それぞれ名指しで禁止する', () => {
+  it('実際に起きた失敗を、それぞれ名指しで禁止する', () => {
     for (const rule of [
-      '同じシートを重複して生成しないでください。',
-      'シートを省略しないでください。',
-      '他のシートの内容を混ぜないでください。',
+      '- 45種類を1枚の画像にまとめない',
+      '- 5シートを1枚のコラージュにしない',
+      '- 複数シートを同じ画像内に配置しない',
+      '- 同じシートの別バージョンを複数生成しない',
+      '- 1枚だけ生成して終了しない',
+      '- 途中でユーザーに選択を求めない',
+      '- 「どちらがいいですか」などの確認を行わない',
+      '- シート1生成後に停止しない',
     ]) {
-      expect(prompt.split(rule).length - 1, `「${rule}」が2か所に出る`).toBe(2);
+      expect(prompt, rule).toContain(rule);
     }
+  });
+
+  it('確認を挟まず次のシートへ進むよう伝える', () => {
+    // 「どちらがいいですか」と聞かれて止まったため
+    expect(prompt).toContain(
+      'シート1の生成が完了したら、ユーザーへの確認を挟まず、そのままシート2、シート3、シート4、シート5まで順番に生成してください。',
+    );
   });
 
   it('1枚にまとめないことを、冒頭と末尾の2か所で言う', () => {
-    // いちばん多い失敗がコラージュになること（追加仕様 §2 / §6.3）
-    expect(prompt).toContain('5セットを1枚の巨大な画像やコラージュにまとめないでください');
-    expect(prompt).toContain('45種類を1枚の画像にまとめないでください');
-
     const lines = prompt.split('\n');
-    const firstWarning = lines.findIndex((line) => line.includes('コラージュにまとめない'));
-    const lastWarning = lines.findIndex((line) => line.includes('45種類を1枚'));
-    expect(firstWarning).toBeLessThan(20);
-    expect(lastWarning).toBeGreaterThan(lines.length - 3);
+    const first = lines.findIndex((line) => line.includes('1枚のコラージュにしない'));
+    const last = lines.length - 1 - [...lines].reverse().findIndex((line) => line.includes('45種類を1枚の画像にまとめない'));
+    expect(first).toBeGreaterThan(-1);
+    expect(first).toBeLessThan(25);
+    expect(last).toBeGreaterThan(lines.length - 3);
+  });
+
+  it('末尾でもう一度、枚数と終了条件を念押しする', () => {
+    const tail = prompt.split('\n').slice(-3);
+    expect(tail).toEqual([
+      'シート1からシート5までを、それぞれ独立した画像として合計5枚生成してください。',
+      '45種類を1枚の画像にまとめないでください。',
+      '1枚生成した時点で終了せず、必ず5枚すべて生成してください。',
+    ]);
   });
 
   it('5枚を別々の画像として頼む', () => {
-    expect(prompt).toContain('5枚をそれぞれ別々の正方形（1:1）画像として出力してください');
+    expect(prompt).toContain('5枚とも完全透明背景の正方形ステッカーシートとして別々に出力してください');
     expect(prompt).toContain('完全透明背景');
   });
 
@@ -136,8 +161,8 @@ describe('まとめて頼むプロンプト', () => {
     const lines = prompt.split('\n');
     const start = lines.findIndex((line) => line === '# シート2');
     expect(start).toBeGreaterThan(-1);
-    expect(lines[start + 2]?.startsWith('1. ')).toBe(true);
-    expect(lines[start + 10]?.startsWith('9. ')).toBe(true);
+    expect(lines[start + 1]?.startsWith('1. ')).toBe(true);
+    expect(lines[start + 9]?.startsWith('9. ')).toBe(true);
   });
 
   it('5枚を同じシリーズとして統一するよう伝える', () => {
@@ -154,22 +179,30 @@ describe('まとめて頼むプロンプト', () => {
     expect(prompt).toContain('参照画像で確認できる外見、衣装、体の特徴を維持してください');
   });
 
-  it('おまかせでは、検証済みの文面に何も足さない', () => {
+  it('仕上がり設定だけが、検証済みの文面との違いになる', () => {
     // 書かれていない指示を勝手に加えない
-    const withStyle = buildBatchStickerPrompt(sheets, 'text');
-    expect(withStyle.length).toBeGreaterThan(prompt.length);
-    expect(withStyle).toContain('カラフル');
-    expect(prompt).not.toContain('カラフル');
+    const auto = buildBatchStickerPrompt(sheets, 'auto');
+    expect(auto).not.toContain('カラフル');
+    expect(auto.length).toBeLessThan(prompt.length);
+
+    // 差は文字くっきりの2行だけ
+    const added = prompt.split('\n').filter((line) => !auto.split('\n').includes(line));
+    expect(added).toEqual([
+      'セリフを大きく、はっきり目立たせてください。',
+      '文字色はカラフルで楽しい印象にして構いません。',
+    ]);
   });
 
   it('枚数が変わっても文面が噛み合う', () => {
     const two = buildBatchStickerPrompt(sheets.slice(0, 2), 'auto');
     expect(two).toContain('ステッカーシートを2枚生成してください');
-    expect(two).toContain('必ず2枚の独立した画像を生成してください');
-    expect(two).toContain('出力は必ず合計2枚にしてください');
+    expect(two).toContain('画像を合計2枚生成してください');
+    expect(two).toContain('1回の画像生成で2シートを表現するのではありません');
+    expect(two).toContain('3×3ステッカーシート × 2枚 = 18種類');
     expect(two).toContain('18種類を1枚の画像にまとめないでください');
-    expect(two).toContain('- 画像2 = シート2');
-    expect(two).not.toContain('- 画像3 = シート3');
+    expect(two).toContain('必ず2枚すべて生成してください');
+    expect(two).toContain('- 画像2 = シート2のみ');
+    expect(two).not.toContain('- 画像3 = シート3のみ');
     expect(two).not.toContain('# シート3');
   });
 });
