@@ -1147,3 +1147,16 @@ body {
   align-items: center;
   min-width: 0;
 }
+
+/* オフライン版の入手口（§54） */
+.site-footer__offline {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  align-items: baseline;
+}
+
+.site-footer__offline a {
+  color: var(--accent-strong);
+  font-weight: 600;
+}

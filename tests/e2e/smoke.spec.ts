@@ -77,3 +77,28 @@ test('オフライン版で保存機能が使える', async ({ page }) => {
 
   expect(available, 'file:// で保存が使えなくなりました。フォールバックの実装が必要です').toBe(true);
 });
+
+/**
+ * オフライン版を利用者が入手できること（原仕様 §54）。
+ *
+ * ビルドもテストもしていたのに、置く場所がなく誰も手に入れられなかった。
+ * リンクの名前と、実際に置くファイル名が食い違うと同じことが起きる。
+ */
+test('Web版からオフライン版をダウンロードできる', async ({ page }) => {
+  await page.goto('/');
+  const link = page.getByRole('link', { name: 'オフライン版をダウンロード' });
+  await expect(link).toBeVisible();
+  await expect(link).toHaveAttribute('href', 'RUHiA-Sticker-Studio.html');
+  // Preact は download 属性を "true" として出す。表示ではなく保存になればよい
+  await expect(link).toHaveAttribute('download', /.*/);
+});
+
+/** オフライン版自身では出さない。隣にファイルが無く、リンクが必ず切れる。 */
+test('オフライン版には、オフライン版のリンクを出さない', async ({ page }) => {
+  const offlineHtml = resolve(process.cwd(), 'dist-offline/index.html');
+  test.skip(!existsSync(offlineHtml), 'npm run build:offline を先に実行してください');
+
+  await page.goto(pathToFileURL(offlineHtml).href);
+  await expect(page.getByRole('heading', { name: 'RUHiA Sticker Studio' })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'オフライン版をダウンロード' })).toHaveCount(0);
+});

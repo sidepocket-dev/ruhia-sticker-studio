@@ -37,6 +37,9 @@ import { SheetList } from './components/SheetList.js';
 import { StickerGrid } from './components/StickerGrid.js';
 import { TabAdjuster } from './components/TabAdjuster.js';
 
+/** オフライン版のファイル名（原仕様 §54）。デプロイもこの名前で置く */
+const OFFLINE_FILE_NAME = 'RUHiA-Sticker-Studio.html';
+
 export function App() {
   const loaded = sheets.value.length;
   const remaining = requiredSheets.value - loaded;
@@ -106,6 +109,7 @@ export function App() {
       </main>
 
       <footer class="site-footer">
+        <OfflineDownload />
         <p>
           RUHiA Sticker StudioはLINEおよびOpenAIの公式サービスではありません。
           各サービス名・商標はそれぞれの権利者に帰属します。
@@ -113,6 +117,31 @@ export function App() {
         <p>LINE規格の確認日：{LINE_STATIC_STICKER_SPEC.verifiedAt}</p>
       </footer>
     </div>
+  );
+}
+
+/**
+ * オフライン版の入手口（原仕様 §54）。
+ *
+ * HTML1枚をダブルクリックすれば、通信のない場所でも同じことができる。
+ * 作ってテストもしていたのに、置く場所がなく誰も手に入れられなかった。
+ *
+ * オフライン版自身では出さない。そのHTMLの隣にファイルは無い
+ * （リンクが必ず切れる）し、すでに手元にあるものを配る意味もない。
+ */
+function OfflineDownload() {
+  const isFile = typeof location !== 'undefined' && location.protocol === 'file:';
+  if (isFile) return null;
+
+  return (
+    <p class="site-footer__offline">
+      <a href={OFFLINE_FILE_NAME} download>
+        オフライン版をダウンロード
+      </a>
+      <span>
+        HTMLが1枚だけ。保存してダブルクリックすると、通信のない場所でも同じように使えます。
+      </span>
+    </p>
   );
 }
 
