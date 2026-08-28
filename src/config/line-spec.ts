@@ -8,8 +8,15 @@
  * リリース前には最新のLINE公式ガイドラインを再確認し、verifiedAt を更新すること。
  */
 export const LINE_STATIC_STICKER_SPEC = {
-  /** この規格値を公式ガイドラインで確認した日 */
-  verifiedAt: '2026-08-26',
+  /**
+   * この規格値を公式ガイドラインで確認した日。
+   * https://creator.line.me/ja/guideline/sticker/
+   *
+   * 2026-08-28 に全項目を再確認し、下の値はすべて一致した。
+   * 公式にはもう1つ「コンテンツと外枠の間に10pxぐらいの余白」という
+   * 記述があり、本アプリの安全余白は 8px（IMAGE_CONFIG.safeMarginPx）。
+   */
+  verifiedAt: '2026-08-28',
 
   /** LINEが受け付けるスタンプ個数 */
   allowedCounts: [8, 16, 24, 32, 40],
