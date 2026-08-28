@@ -9,14 +9,22 @@ const sheets = groupBySheet(buildPlans({ preset: 'business', tone: 'polite', tar
 const first = sheets[0] ?? [];
 
 describe('仕上がり設定', () => {
-  it('仕様が挙げた5つがそろっている', () => {
+  it('生成して差が出た4つだけを置く', () => {
+    // 「バランス」は文字くっきりと見分けがつかず削除した（§77.24）。
+    // 選ぶ時点で違いを予測できない設定は、選択肢として働かない
     expect(STYLE_PRESETS.map((style) => style.label)).toEqual([
       'おまかせ',
       'キャラクター重視',
-      'バランス',
       '文字くっきり',
       '落ち着いた仕上がり',
     ]);
+  });
+
+  it('4つが2つの軸で並んでいる', () => {
+    // 主役をどちらにするか / 派手か落ち着いているか。
+    // どの2つを比べても、足す文が違う
+    const lines = STYLE_PRESETS.map((style) => style.lines.join('\n'));
+    expect(new Set(lines).size, '同じ指定の設定がある').toBe(STYLE_PRESETS.length);
   });
 
   it('おまかせは何も足さない', () => {
@@ -33,7 +41,7 @@ describe('仕上がり設定', () => {
 
   it('文字くっきりでだけ、文字を目立たせる指定が入る', () => {
     expect(buildStickerPrompt(first, 'text')).toContain('カラフル');
-    for (const id of ['auto', 'character', 'balanced', 'calm'] as const) {
+    for (const id of ['auto', 'character', 'calm'] as const) {
       expect(buildStickerPrompt(first, id), id).not.toContain('カラフル');
     }
   });
@@ -55,10 +63,6 @@ describe('仕上がり設定', () => {
     expect(calm).toContain('飾りは付けないでください');
     expect(calm).not.toContain('派手にしすぎず');
 
-    const balanced = findStyle('balanced').lines.join('\n');
-    expect(balanced).toContain('同じくらいの大きさ');
-    expect(balanced).toContain('重ねず');
-    expect(balanced).not.toContain('両方がはっきり見える');
   });
 
   it('どの設定でも、抽出に必要な条件は消えない', () => {
