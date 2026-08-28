@@ -211,30 +211,78 @@ describe('まとめて頼むプロンプト', () => {
   });
 });
 
-describe('1枚だけで止まったときの続きの頼み方', () => {
+describe('途中で止まったときの続きの頼み方', () => {
   // 文面をどれだけ強くしても、画像生成を何回呼ぶかは決められない。
   // 実際に1枚だけ作って止まったため、同じ会話で続きを頼める文を用意する
+  const prompt = buildContinuePrompt(5);
+
   it('残りのシートを、同じ会話の続きとして頼む', () => {
-    expect(buildContinuePrompt(5)).toBe(
-      '残りのシート2〜5を、今のシート1と同じ雰囲気・デザインで続けて生成して',
+    expect(prompt.split('\n')[0]).toBe(
+      '残りのシート2〜5を、今のシート1と同じ雰囲気・デザインで続けて生成してください。',
     );
   });
 
-  it('シート1を作り直させない', () => {
+  it('できたシートを作り直させない', () => {
     // すでにできた1枚は使う。作り直すとシリーズ感が崩れる
-    expect(buildContinuePrompt(5)).not.toContain('シート1を');
-    expect(buildContinuePrompt(5)).toContain('残りの');
+    expect(prompt).toContain('- シート1を作り直さない');
   });
 
-  it('残り1枚のときは範囲にしない', () => {
-    expect(buildContinuePrompt(2)).toBe(
-      '残りのシート2を、今のシート1と同じ雰囲気・デザインで続けて生成して',
+  it('一行だけの依頼にしない', () => {
+    // 実測：一行で頼んだら、4シートぶんを縮小して1枚に詰め込まれた。
+    // 会話の続きでも出力単位は引き継がれない
+    expect(prompt).toContain('【最重要：出力手順】');
+    expect(prompt).toContain('ここでは、画像を合計4枚生成してください。');
+    expect(prompt).toContain('1回の画像生成で4シートを表現するのではありません。');
+  });
+
+  it('出力単位を「画像N = シートMのみ」で示す', () => {
+    for (let sheet = 2; sheet <= 5; sheet++) {
+      expect(prompt).toContain(`- 画像${sheet - 1} = シート${sheet}のみ`);
+    }
+    expect(prompt).not.toContain('= シート1のみ');
+  });
+
+  it('1枚に詰め込むことを名指しで禁止する', () => {
+    // 実際に起きた失敗
+    expect(prompt).toContain('- ステッカーを小さくして1枚に詰め込まない');
+    expect(prompt).toContain('- 36種類を1枚の画像にまとめない');
+    expect(prompt).toContain('- 4シートを1枚のコラージュにしない');
+    expect(prompt).toContain('- 複数シートを同じ画像内に配置しない');
+  });
+
+  it('1枚ぶんの条件も、もう一度書く', () => {
+    // 縮小して詰め込まれたため、1枚が何であるかを言い直す
+    expect(prompt).toContain('3×3グリッド、9種類のステッカー、正方形（1:1）、完全透明背景');
+  });
+
+  it('画風をそろえるよう伝える', () => {
+    expect(prompt).toContain(
+      'シート1の続きとして、キャラクター、画風、文字表現、仕上がりをそろえてください。',
     );
+  });
+
+  it('残り1枚のときは、複数枚の説明を出さない', () => {
+    const last = buildContinuePrompt(5, 4);
+    expect(last.split('\n')[0]).toBe(
+      '残りのシート5を、今のシート1〜4と同じ雰囲気・デザインで続けて生成してください。',
+    );
+    expect(last).toContain('ここでは、画像を合計1枚生成してください。');
+    expect(last).toContain('「シート5」を、独立した画像1枚として生成してください。');
+    expect(last).toContain('- 画像1 = シート5のみ');
+    expect(last).not.toContain('コラージュ');
+    expect(last).not.toContain('1枚だけ生成して終了しない');
+    // 詰め込み禁止は残り1枚でも要る
+    expect(last).toContain('- ステッカーを小さくして1枚に詰め込まない');
   });
 
   it('2枚できて止まったときにも合う', () => {
-    expect(buildContinuePrompt(5, 2)).toBe(
-      '残りのシート3〜5を、今のシート1〜2と同じ雰囲気・デザインで続けて生成して',
+    const rest = buildContinuePrompt(5, 2);
+    expect(rest.split('\n')[0]).toBe(
+      '残りのシート3〜5を、今のシート1〜2と同じ雰囲気・デザインで続けて生成してください。',
     );
+    expect(rest).toContain('ここでは、画像を合計3枚生成してください。');
+    expect(rest).toContain('- 画像1 = シート3のみ');
+    expect(rest).toContain('- 27種類を1枚の画像にまとめない');
+    expect(rest).toContain('- シート1〜2を作り直さない');
   });
 });

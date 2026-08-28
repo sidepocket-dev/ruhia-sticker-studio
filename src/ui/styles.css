@@ -1096,15 +1096,8 @@ body {
   margin-top: 10px;
 }
 
-.continue-hint__text {
-  flex: 1 1 min(100%, 280px);
-  min-width: 0;
-  padding: 8px 10px;
-  border-radius: 8px;
-  background: var(--surface);
-  font-size: 13px;
-  line-height: 1.6;
-  word-break: break-word;
+.continue-hint textarea {
+  margin-top: 8px;
 }
 
 @media (pointer: coarse) {

@@ -93,6 +93,8 @@ export function SheetPrompts() {
 
 function BatchPrompt({ count }: { count: number }) {
   const [open, setOpen] = useState(false);
+  const [openContinue, setOpenContinue] = useState(false);
+  const continuePrompt = buildContinuePrompt(count);
 
   return (
     <div class="sheet-prompts__item">
@@ -120,14 +122,25 @@ function BatchPrompt({ count }: { count: number }) {
           AIによっては、1枚だけ作って止まることがあります。
         </p>
         <p>
-          そのときは<strong>新しい会話を始めずに</strong>、そのまま続けてこう頼んでください。
+          そのときは<strong>新しい会話を始めずに</strong>、そのまま続けて下の文を送ってください。
           さっき作ったシート1を見ながら描けるので、絵の雰囲気がそろいます。
           <strong>シート1を作り直す必要はありません。</strong>
         </p>
         <div class="continue-hint__row">
-          <span class="continue-hint__text">{buildContinuePrompt(count)}</span>
-          <CopyButton text={buildContinuePrompt(count)} label="続きを頼む文をコピー" />
+          <CopyButton text={continuePrompt} label="続きを頼む文をコピー" />
+          <button
+            type="button"
+            class="sheet-prompts__toggle"
+            aria-expanded={openContinue}
+            onClick={() => setOpenContinue(!openContinue)}
+          >
+            <span class="sheet-prompts__caret" aria-hidden="true">
+              {openContinue ? '▾' : '▸'}
+            </span>
+            続きの文章を見る
+          </button>
         </div>
+        {openContinue && <textarea readOnly rows={12} value={continuePrompt} />}
         <p>それでも増えないときは「1枚ずつ頼む」に切り替えてください。</p>
       </div>
     </div>
