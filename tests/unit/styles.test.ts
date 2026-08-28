@@ -47,12 +47,18 @@ describe('仕上がり設定', () => {
     expect(text).toContain('セリフを大きく');
   });
 
-  it('落ち着いた仕上がりは、数えられる形で書く', () => {
-    // 「派手にしすぎず」だけでは、色数も飾りも変わらなかった（§77.24）
+  it('程度を表す言葉だけで指定しない', () => {
+    // 実測：「派手にしすぎず」「両方はっきり」は効かず、
+    // 「文字色は1〜2色」「飾りは付けない」は効いた（§77.24）
     const calm = findStyle('calm').lines.join('\n');
     expect(calm).toContain('1〜2色');
     expect(calm).toContain('飾りは付けないでください');
     expect(calm).not.toContain('派手にしすぎず');
+
+    const balanced = findStyle('balanced').lines.join('\n');
+    expect(balanced).toContain('同じくらいの大きさ');
+    expect(balanced).toContain('重ねず');
+    expect(balanced).not.toContain('両方がはっきり見える');
   });
 
   it('どの設定でも、抽出に必要な条件は消えない', () => {
