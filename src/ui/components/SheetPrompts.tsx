@@ -1,6 +1,7 @@
 import { useState } from 'preact/hooks';
 import type { StickerPlan } from '../../core/text/plan.js';
 import { STYLE_PRESETS } from '../../core/text/styles.js';
+import { buildContinuePrompt } from '../../core/text/sticker-prompt.js';
 import {
   batchPrompt,
   chooseGenerationMode,
@@ -114,10 +115,21 @@ function BatchPrompt({ count }: { count: number }) {
         </span>
       </div>
       {open && <textarea readOnly rows={16} value={batchPrompt.value} />}
-      <p class="sheet-prompts__warn">
-        AIによっては、まとめて頼んでも1枚しか返らないことがあります。
-        その場合は「1枚ずつ頼む」に切り替えてください。
-      </p>
+      <div class="continue-hint">
+        <p class="sheet-prompts__warn">
+          AIによっては、1枚だけ作って止まることがあります。
+        </p>
+        <p>
+          そのときは<strong>新しい会話を始めずに</strong>、そのまま続けてこう頼んでください。
+          さっき作ったシート1を見ながら描けるので、絵の雰囲気がそろいます。
+          <strong>シート1を作り直す必要はありません。</strong>
+        </p>
+        <div class="continue-hint__row">
+          <span class="continue-hint__text">{buildContinuePrompt(count)}</span>
+          <CopyButton text={buildContinuePrompt(count)} label="続きを頼む文をコピー" />
+        </div>
+        <p>それでも増えないときは「1枚ずつ頼む」に切り替えてください。</p>
+      </div>
     </div>
   );
 }

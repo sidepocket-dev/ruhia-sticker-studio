@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { STYLE_PRESETS, findStyle } from '../../src/core/text/styles.js';
-import { buildBatchStickerPrompt, buildStickerPrompt } from '../../src/core/text/sticker-prompt.js';
+import {
+  buildBatchStickerPrompt,
+  buildContinuePrompt,
+  buildStickerPrompt,
+} from '../../src/core/text/sticker-prompt.js';
 import { buildPlans, groupBySheet } from '../../src/core/text/plan.js';
 import { COMPOSITION_LABELS } from '../../src/core/text/poses.js';
 import { readFileSync } from 'node:fs';
@@ -204,5 +208,33 @@ describe('まとめて頼むプロンプト', () => {
     expect(two).toContain('- 画像2 = シート2のみ');
     expect(two).not.toContain('- 画像3 = シート3のみ');
     expect(two).not.toContain('# シート3');
+  });
+});
+
+describe('1枚だけで止まったときの続きの頼み方', () => {
+  // 文面をどれだけ強くしても、画像生成を何回呼ぶかは決められない。
+  // 実際に1枚だけ作って止まったため、同じ会話で続きを頼める文を用意する
+  it('残りのシートを、同じ会話の続きとして頼む', () => {
+    expect(buildContinuePrompt(5)).toBe(
+      '残りのシート2〜5を、今のシート1と同じ雰囲気・デザインで続けて生成して',
+    );
+  });
+
+  it('シート1を作り直させない', () => {
+    // すでにできた1枚は使う。作り直すとシリーズ感が崩れる
+    expect(buildContinuePrompt(5)).not.toContain('シート1を');
+    expect(buildContinuePrompt(5)).toContain('残りの');
+  });
+
+  it('残り1枚のときは範囲にしない', () => {
+    expect(buildContinuePrompt(2)).toBe(
+      '残りのシート2を、今のシート1と同じ雰囲気・デザインで続けて生成して',
+    );
+  });
+
+  it('2枚できて止まったときにも合う', () => {
+    expect(buildContinuePrompt(5, 2)).toBe(
+      '残りのシート3〜5を、今のシート1〜2と同じ雰囲気・デザインで続けて生成して',
+    );
   });
 });

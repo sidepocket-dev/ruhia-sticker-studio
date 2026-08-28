@@ -1068,6 +1068,45 @@ body {
   color: var(--warn);
 }
 
+/* 1枚だけ作って止まったときの逃げ道（§77.22）。
+   ここで詰まると先へ進めないため、目立つところに置く */
+.continue-hint {
+  margin-top: 10px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg);
+}
+
+.continue-hint p {
+  margin: 8px 0 0;
+  font-size: 12px;
+  line-height: 1.7;
+}
+
+.continue-hint .sheet-prompts__warn {
+  margin: 0;
+}
+
+.continue-hint__row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-top: 10px;
+}
+
+.continue-hint__text {
+  flex: 1 1 min(100%, 280px);
+  min-width: 0;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: var(--surface);
+  font-size: 13px;
+  line-height: 1.6;
+  word-break: break-word;
+}
+
 @media (pointer: coarse) {
   .style-chooser__item { min-height: 44px; }
 }

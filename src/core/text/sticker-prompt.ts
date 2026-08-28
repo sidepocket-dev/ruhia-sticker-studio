@@ -193,6 +193,22 @@ export function buildBatchStickerPrompt(
   ].join('\n');
 }
 
+/**
+ * 1枚だけ作って止まったときに、同じ会話へ続けて送る文（§77.22）。
+ *
+ * まとめて頼んでも、モデルが画像生成を1回しか呼ばずに終わることがある。
+ * 文面をどれだけ強くしても、何回生成するかは文面では決められないため、
+ * この場合は**同じ会話のまま続きを頼む**のがいちばん確実。
+ *
+ * 新しい会話を始めてはいけない。直前のシート1を見ながら描けるので、
+ * 別々に頼むよりシリーズ感が保たれる。シート1の作り直しも要らない。
+ */
+export function buildContinuePrompt(count: number, done = 1): string {
+  const rest = done + 1 === count ? `シート${count}` : `シート${done + 1}〜${count}`;
+  const made = done === 1 ? 'シート1' : `シート1〜${done}`;
+  return `残りの${rest}を、今の${made}と同じ雰囲気・デザインで続けて生成して`;
+}
+
 /** すべてのシートぶんのプロンプトを、シート番号つきで返す。 */
 export function buildAllStickerPrompts(
   sheets: StickerPlan[][],

@@ -266,7 +266,14 @@ test('5枚まとめて頼むプロンプトを出せる', async ({ page }) => {
   await expect(page.locator('.sheet-prompts__item')).toHaveCount(1);
 
   // まとめて頼めないAIがあることを伝える
-  await expect(page.getByText('1枚しか返らないことがあります', { exact: false })).toBeVisible();
+  await expect(page.getByText('1枚だけ作って止まることがあります', { exact: false })).toBeVisible();
+
+  // 止まったときの逃げ道を、その場で渡す
+  await expect(page.getByText('新しい会話を始めずに', { exact: false })).toBeVisible();
+  await expect(
+    page.getByText('残りのシート2〜5を、今のシート1と同じ雰囲気・デザインで続けて生成して'),
+  ).toBeVisible();
+  await expect(page.getByRole('button', { name: '続きを頼む文をコピー' })).toBeVisible();
 
   await page.getByRole('button', { name: '文章を見る' }).click();
   const prompt = page.locator('.sheet-prompts__item textarea');
