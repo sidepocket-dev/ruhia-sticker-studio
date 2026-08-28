@@ -1068,7 +1068,7 @@ body {
   color: var(--warn);
 }
 
-/* 1枚だけ作って止まったときの逃げ道（§77.22）。
+/* 途中で止まったときの逃げ道（§77.22）。
    ここで詰まると先へ進めないため、目立つところに置く */
 .continue-hint {
   margin-top: 10px;
@@ -1088,17 +1088,6 @@ body {
   margin: 0;
 }
 
-.continue-hint__row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  align-items: center;
-  margin-top: 10px;
-}
-
-.continue-hint textarea {
-  margin-top: 8px;
-}
 
 @media (pointer: coarse) {
   .style-chooser__item { min-height: 44px; }

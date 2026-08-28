@@ -266,23 +266,17 @@ test('5枚まとめて頼むプロンプトを出せる', async ({ page }) => {
   await expect(page.locator('.sheet-prompts__item')).toHaveCount(1);
 
   // まとめて頼めないAIがあることを伝える
-  await expect(page.getByText('1枚だけ作って止まることがあります', { exact: false })).toBeVisible();
+  await expect(
+    page.getByText('途中で止まったり、同じ絵ばかりになることがあります', { exact: false }),
+  ).toBeVisible();
 
-  // 止まったときの逃げ道を、その場で渡す
-  await expect(page.getByText('新しい会話を始めずに', { exact: false })).toBeVisible();
-  await expect(page.getByRole('button', { name: '続きを頼む文をコピー' })).toBeVisible();
+  // 失敗したときの逃げ道は「1枚ずつ頼む」。会話の続きで直そうとさせない
+  await expect(page.getByText('「1枚ずつ頼む」に切り替えて', { exact: false })).toBeVisible();
+  await expect(page.getByText('できたシートは作り直さなくて大丈夫です', { exact: false })).toBeVisible();
+  await expect(page.getByRole('button', { name: /続きを頼む/ })).toHaveCount(0);
 
-  // 続きの文にも、1枚ずつ作る指示が入る（一行だけだと1枚に詰め込まれた）
-  await page.getByRole('button', { name: '続きの文章を見る' }).click();
-  const cont = page.locator('.continue-hint textarea');
-  await expect(cont).toHaveValue(/残りのシート2〜5を、今のシート1と同じ雰囲気・デザインで続けて生成してください/);
-  await expect(cont).toHaveValue(/ここでは、画像を合計4枚生成してください/);
-  await expect(cont).toHaveValue(/- 画像4 = シート5のみ/);
-  await expect(cont).toHaveValue(/ステッカーを小さくして1枚に詰め込まない/);
-  await expect(cont).toHaveValue(/シート1を作り直さない/);
-
-  await page.getByRole('button', { name: '文章を見る', exact: true }).click();
-  const prompt = page.locator('.sheet-prompts__item > textarea');
+  await page.getByRole('button', { name: '文章を見る' }).click();
+  const prompt = page.locator('.sheet-prompts__item textarea');
 
   // 実機で5枚生成できた文面の要点
   await expect(prompt).toHaveValue(/この依頼では、画像を合計5枚生成してください/);

@@ -1,7 +1,6 @@
 import { useState } from 'preact/hooks';
 import type { StickerPlan } from '../../core/text/plan.js';
 import { STYLE_PRESETS } from '../../core/text/styles.js';
-import { buildContinuePrompt } from '../../core/text/sticker-prompt.js';
 import {
   batchPrompt,
   chooseGenerationMode,
@@ -93,8 +92,6 @@ export function SheetPrompts() {
 
 function BatchPrompt({ count }: { count: number }) {
   const [open, setOpen] = useState(false);
-  const [openContinue, setOpenContinue] = useState(false);
-  const continuePrompt = buildContinuePrompt(count);
 
   return (
     <div class="sheet-prompts__item">
@@ -119,29 +116,17 @@ function BatchPrompt({ count }: { count: number }) {
       {open && <textarea readOnly rows={16} value={batchPrompt.value} />}
       <div class="continue-hint">
         <p class="sheet-prompts__warn">
-          AIによっては、1枚だけ作って止まることがあります。
+          AIによっては、途中で止まったり、同じ絵ばかりになることがあります。
         </p>
         <p>
-          そのときは<strong>新しい会話を始めずに</strong>、そのまま続けて下の文を送ってください。
-          さっき作ったシート1を見ながら描けるので、絵の雰囲気がそろいます。
-          <strong>シート1を作り直す必要はありません。</strong>
+          そのときは<strong>「1枚ずつ頼む」に切り替えて</strong>、
+          まだできていないシートだけを頼んでください。
+          1枚ずつの文章には、そのシートの9種類が書いてあります。
         </p>
-        <div class="continue-hint__row">
-          <CopyButton text={continuePrompt} label="続きを頼む文をコピー" />
-          <button
-            type="button"
-            class="sheet-prompts__toggle"
-            aria-expanded={openContinue}
-            onClick={() => setOpenContinue(!openContinue)}
-          >
-            <span class="sheet-prompts__caret" aria-hidden="true">
-              {openContinue ? '▾' : '▸'}
-            </span>
-            続きの文章を見る
-          </button>
-        </div>
-        {openContinue && <textarea readOnly rows={12} value={continuePrompt} />}
-        <p>それでも増えないときは「1枚ずつ頼む」に切り替えてください。</p>
+        <p>
+          <strong>できたシートは作り直さなくて大丈夫です。</strong>
+          同じ会話のまま続けると、絵の雰囲気がそろいやすくなります。
+        </p>
       </div>
     </div>
   );
