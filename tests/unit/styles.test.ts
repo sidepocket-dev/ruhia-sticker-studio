@@ -47,6 +47,14 @@ describe('仕上がり設定', () => {
     expect(text).toContain('セリフを大きく');
   });
 
+  it('落ち着いた仕上がりは、数えられる形で書く', () => {
+    // 「派手にしすぎず」だけでは、色数も飾りも変わらなかった（§77.24）
+    const calm = findStyle('calm').lines.join('\n');
+    expect(calm).toContain('1〜2色');
+    expect(calm).toContain('飾りは付けないでください');
+    expect(calm).not.toContain('派手にしすぎず');
+  });
+
   it('どの設定でも、抽出に必要な条件は消えない', () => {
     for (const style of STYLE_PRESETS) {
       const prompt = buildStickerPrompt(first, style.id);
