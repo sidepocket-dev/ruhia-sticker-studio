@@ -184,3 +184,45 @@ test('自由配置シートからもZIPを作れる', async ({ page }) => {
 
   expect(errors).toEqual([]);
 });
+
+/**
+ * LINEのタグ設定を手伝う欄（§77.23）。
+ *
+ * タグは一覧から選ぶ形式なので、言葉をコピーしてページ内検索で探す。
+ * コピーできなければ意味がないため、実際に貼れることまで確かめる。
+ */
+test('タグの手がかりをコピーできる', async ({ page, context, browserName }) => {
+  await page.goto('/');
+  await page.setInputFiles('input[type="file"]', FIXTURE);
+  await expect(page.getByRole('heading', { name: '9個のスタンプを見つけました' })).toBeVisible({
+    timeout: 15_000,
+  });
+
+  // 既定ではたたまれている。40個ぶん並ぶため
+  const toggle = page.getByRole('button', { name: 'LINEでタグを付けるときの手がかり' });
+  await expect(page.locator('.tag-helper__list')).toHaveCount(0);
+  await toggle.click();
+
+  // 選んだ個数ぶん出る
+  await expect(page.locator('.tag-helper__item')).toHaveCount(TARGET);
+
+  // 一覧から選ぶ形式であることと、探し方を伝える
+  await expect(page.getByText('一覧から選ぶ形式', { exact: false })).toBeVisible();
+  await expect(page.getByText('ページ内検索', { exact: false })).toBeVisible();
+
+  // 番号は提出順。01.png のタグを付けるときに迷わない
+  const first = page.locator('.tag-helper__item').first();
+  await expect(first.locator('.tag-helper__number')).toHaveText('01');
+
+  // 言葉そのものがボタンになっていて、押すとコピーできる
+  const chip = first.locator('.tag-helper__words .button').first();
+  const word = await chip.innerText();
+  await chip.click();
+  await expect(page.getByText('コピーしました')).toBeVisible();
+
+  // 中身までは、クリップボードを読み出せるブラウザだけで確かめる
+  if (browserName !== 'chromium') return;
+  await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+  await chip.click();
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(word);
+});
