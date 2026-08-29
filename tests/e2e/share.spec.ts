@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { resolve } from 'node:path';
+import { waitForStickers } from './helpers.js';
 
 const FIXTURE = resolve(process.cwd(), 'tests/fixtures/sheet-1.png');
 
@@ -42,9 +43,7 @@ test('LINE用データを共有で渡せる', async ({ page }) => {
   await stubShare(page);
   await page.goto('/');
   await page.setInputFiles('input[type="file"]:not([accept*="zip"])', [FIXTURE]);
-  await expect(page.getByRole('heading', { name: '9個のスタンプを見つけました' })).toBeVisible({
-    timeout: 30_000,
-  });
+  await waitForStickers(page, 9);
 
   // 共有が使える端末では文言が変わる
   const button = page.getByRole('button', { name: 'LINE用データを作成・保存' });
@@ -67,9 +66,7 @@ test('作業内容を共有で渡せる', async ({ page }) => {
   await stubShare(page);
   await page.goto('/');
   await page.setInputFiles('input[type="file"]:not([accept*="zip"])', [FIXTURE]);
-  await expect(page.getByRole('heading', { name: '9個のスタンプを見つけました' })).toBeVisible({
-    timeout: 30_000,
-  });
+  await waitForStickers(page, 9);
 
   await page.getByRole('button', { name: '作業内容を保存・共有' }).click();
 
@@ -93,9 +90,7 @@ test('共有を閉じても、勝手にダウンロードしない', async ({ pa
   });
   await page.goto('/');
   await page.setInputFiles('input[type="file"]:not([accept*="zip"])', [FIXTURE]);
-  await expect(page.getByRole('heading', { name: '9個のスタンプを見つけました' })).toBeVisible({
-    timeout: 30_000,
-  });
+  await waitForStickers(page, 9);
 
   let downloaded = false;
   page.on('download', () => {
@@ -116,9 +111,7 @@ test('共有が使えない環境では、保存先を案内する', async ({ pa
   });
   await page.goto('/');
   await page.setInputFiles('input[type="file"]:not([accept*="zip"])', [FIXTURE]);
-  await expect(page.getByRole('heading', { name: '9個のスタンプを見つけました' })).toBeVisible({
-    timeout: 30_000,
-  });
+  await waitForStickers(page, 9);
 
   const [download] = await Promise.all([
     page.waitForEvent('download'),
@@ -138,9 +131,7 @@ test.describe('パソコン', () => {
     await stubShare(page);
     await page.goto('/');
     await page.setInputFiles('input[type="file"]:not([accept*="zip"])', [FIXTURE]);
-    await expect(page.getByRole('heading', { name: '9個のスタンプを見つけました' })).toBeVisible({
-      timeout: 30_000,
-    });
+    await waitForStickers(page, 9);
 
     // 文言も変わらない
     const button = page.getByRole('button', { name: 'LINE用データを作成', exact: true });

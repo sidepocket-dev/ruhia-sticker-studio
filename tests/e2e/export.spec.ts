@@ -5,6 +5,7 @@ import { unzipSync } from 'fflate';
 import { decode } from 'fast-png';
 import { LINE_STATIC_STICKER_SPEC, stickerFileName } from '../../src/config/line-spec.js';
 import { PNG_COLOR_TYPE_RGBA, readPngInfo } from '../../src/core/line/png-info.js';
+import { waitForStickers } from './helpers.js';
 
 const FIXTURE = resolve(process.cwd(), 'tests/fixtures/sheet-a.png');
 const SPEC = LINE_STATIC_STICKER_SPEC;
@@ -17,9 +18,7 @@ test('シートからLINE提出用ZIPを作れる', async ({ page }) => {
 
   await page.goto('/');
   await page.setInputFiles('input[type="file"]', FIXTURE);
-  await expect(page.getByRole('heading', { name: '9個のスタンプを見つけました' })).toBeVisible({
-    timeout: 15_000,
-  });
+  await waitForStickers(page, 9);
 
   // 9候補のうち8個が自動で選ばれ、そのまま書き出せる状態になっている
   await expect(page.getByText(`${TARGET} / ${TARGET} 選択済み`)).toBeVisible();
@@ -97,9 +96,7 @@ test('シートからLINE提出用ZIPを作れる', async ({ page }) => {
 test('タブ画像の大きさを変えると、提出するtab.pngも変わる', async ({ page }) => {
   await page.goto('/');
   await page.setInputFiles('input[type="file"]', FIXTURE);
-  await expect(page.getByRole('heading', { name: '9個のスタンプを見つけました' })).toBeVisible({
-    timeout: 15_000,
-  });
+  await waitForStickers(page, 9);
 
   const exportZip = async (): Promise<Record<string, Uint8Array>> => {
     const [download] = await Promise.all([
@@ -126,9 +123,7 @@ test('タブ画像の大きさを変えると、提出するtab.pngも変わる'
 test('スタンプの大小関係が元のシートと同じ', async ({ page }) => {
   await page.goto('/');
   await page.setInputFiles('input[type="file"]', FIXTURE);
-  await expect(page.getByRole('heading', { name: '9個のスタンプを見つけました' })).toBeVisible({
-    timeout: 15_000,
-  });
+  await waitForStickers(page, 9);
 
   const [download] = await Promise.all([
     page.waitForEvent('download'),
@@ -156,9 +151,7 @@ test('自由配置シートからもZIPを作れる', async ({ page }) => {
 
   await page.goto('/');
   await page.setInputFiles('input[type="file"]', resolve(process.cwd(), 'tests/fixtures/sheet-b.png'));
-  await expect(page.getByRole('heading', { name: '9個のスタンプを見つけました' })).toBeVisible({
-    timeout: 15_000,
-  });
+  await waitForStickers(page, 9);
   await expect(page.locator('.sticker-card__warning')).toHaveCount(0);
 
   const [download] = await Promise.all([
@@ -194,9 +187,7 @@ test('自由配置シートからもZIPを作れる', async ({ page }) => {
 test('タグの手がかりをコピーできる', async ({ page, context, browserName }) => {
   await page.goto('/');
   await page.setInputFiles('input[type="file"]', FIXTURE);
-  await expect(page.getByRole('heading', { name: '9個のスタンプを見つけました' })).toBeVisible({
-    timeout: 15_000,
-  });
+  await waitForStickers(page, 9);
 
   // 既定ではたたまれている。40個ぶん並ぶため
   const toggle = page.getByRole('button', { name: 'LINEでタグを付けるときの手がかり' });

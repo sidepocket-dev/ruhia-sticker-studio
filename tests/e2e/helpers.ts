@@ -1,3 +1,4 @@
+import { expect } from '@playwright/test';
 import type { Page } from '@playwright/test';
 
 /**
@@ -13,4 +14,22 @@ export function trackNetworkRequests(page: Page): string[] {
     if (/^(https?|wss?):/i.test(request.url())) requests.push(request.url());
   });
   return requests;
+}
+
+/**
+ * 読み込んだシートの解析が終わるのを待つ。
+ *
+ * 待ち時間は**枚数から決める**。1枚あたり約1.6MBを解析するので、
+ * 5枚は1枚の5倍かかる。ここを固定値で書くと、機械が混んでいるときに
+ * いちばん重い試験だけが落ちる（実際に落ちた）。
+ *
+ * 落ちたときに何を待っていたか分かるよう、メッセージを付ける。
+ */
+export async function waitForStickers(page: Page, found: number): Promise<void> {
+  const sheets = Math.ceil(found / 9);
+  const budget = 20_000 + sheets * 20_000;
+  await expect(
+    page.getByRole('heading', { name: `${found}個のスタンプを見つけました` }),
+    `シート${sheets}枚の解析が${budget / 1000}秒で終わらなかった`,
+  ).toBeVisible({ timeout: budget });
 }

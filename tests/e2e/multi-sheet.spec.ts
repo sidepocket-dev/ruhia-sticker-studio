@@ -4,6 +4,7 @@ import { resolve } from 'node:path';
 import { unzipSync } from 'fflate';
 import { LINE_STATIC_STICKER_SPEC, stickerFileName } from '../../src/config/line-spec.js';
 import { readPngInfo } from '../../src/core/line/png-info.js';
+import { waitForStickers } from './helpers.js';
 
 const fixture = (name: string): string => resolve(process.cwd(), 'tests/fixtures', name);
 const SHEETS = ['sheet-a.png', 'sheet-b.png', 'sheet-c.png'].map(fixture);
@@ -22,9 +23,7 @@ test('3枚まとめて読み込むと27個の候補になる', async ({ page }) 
   await chooseCount(page, 24);
   await page.setInputFiles('input[type="file"]', SHEETS);
 
-  await expect(page.getByRole('heading', { name: '27個のスタンプを見つけました' })).toBeVisible({
-    timeout: 30_000,
-  });
+  await waitForStickers(page, 27);
   await expect(page.locator('.sticker-grid .sticker-card')).toHaveCount(27);
   await expect(page.locator('.sheet-list__item')).toHaveCount(3);
 
@@ -44,9 +43,7 @@ test('TC08: 5枚から40個セットのZIPを作れる', async ({ page }) => {
   // 5枚分の経路を通す。同じ絵でも処理の流れは変わらない
   await page.setInputFiles('input[type="file"]', [...SHEETS, ...SHEETS.slice(0, 2)]);
 
-  await expect(page.getByRole('heading', { name: '45個のスタンプを見つけました' })).toBeVisible({
-    timeout: 60_000,
-  });
+  await waitForStickers(page, 45);
   await expect(page.getByText('40 / 40 選択済み')).toBeVisible();
 
   const [download] = await Promise.all([
@@ -85,9 +82,7 @@ test('シートの順番を入れ替えると候補の並びも変わる', async
   await page.goto('/');
   await chooseCount(page, 16);
   await page.setInputFiles('input[type="file"]', SHEETS.slice(0, 2));
-  await expect(page.getByRole('heading', { name: '18個のスタンプを見つけました' })).toBeVisible({
-    timeout: 30_000,
-  });
+  await waitForStickers(page, 18);
 
   const names = () => page.locator('.sheet-list__name').allTextContents();
   const firstCandidate = () =>

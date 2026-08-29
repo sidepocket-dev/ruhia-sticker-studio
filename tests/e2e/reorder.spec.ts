@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { resolve } from 'node:path';
+import { waitForStickers } from './helpers.js';
 
 const FIXTURE = resolve(process.cwd(), 'tests/fixtures/sheet-a.png');
 
@@ -13,9 +14,7 @@ async function order(page: import('@playwright/test').Page): Promise<string[]> {
 test.beforeEach(async ({ page }) => {
   await page.goto('/');
   await page.setInputFiles('input[type="file"]', FIXTURE);
-  await expect(page.getByRole('heading', { name: '9個のスタンプを見つけました' })).toBeVisible({
-    timeout: 15_000,
-  });
+  await waitForStickers(page, 9);
 });
 
 test('矢印キーで並び順を入れ替えられる', async ({ page }) => {
@@ -154,9 +153,7 @@ test('40個でも、種類ごとにまとまって並ぶ', async ({ page }) => {
     FIXTURE,
     resolve(process.cwd(), 'tests/fixtures/sheet-2.png'),
   ]);
-  await expect(page.getByRole('heading', { name: '45個のスタンプを見つけました' })).toBeVisible({
-    timeout: 60_000,
-  });
+  await waitForStickers(page, 45);
 
   await page.getByRole('button', { name: '使いやすい順に並べる' }).click();
 

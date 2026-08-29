@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { waitForStickers } from './helpers.js';
 
 const FIXTURE = resolve(process.cwd(), 'tests/fixtures/sheet-a.png');
 
@@ -113,9 +114,7 @@ test('読み取れない行を知らせる', async ({ page }) => {
 test('抽出したスタンプに、想定しているセリフが表示される', async ({ page }) => {
   await page.goto('/');
   await page.setInputFiles('input[type="file"]', FIXTURE);
-  await expect(page.getByRole('heading', { name: '9個のスタンプを見つけました' })).toBeVisible({
-    timeout: 15_000,
-  });
+  await waitForStickers(page, 9);
 
   // セリフはその場で直せるよう入力欄になっている
   const texts = page.locator('.sticker-card__text');
@@ -131,9 +130,7 @@ test('抽出したスタンプに、想定しているセリフが表示され�
 test('セリフ一覧を保存できる', async ({ page }) => {
   await page.goto('/');
   await page.setInputFiles('input[type="file"]', FIXTURE);
-  await expect(page.getByRole('heading', { name: '9個のスタンプを見つけました' })).toBeVisible({
-    timeout: 15_000,
-  });
+  await waitForStickers(page, 9);
 
   const [download] = await Promise.all([
     page.waitForEvent('download'),

@@ -1,13 +1,12 @@
 import { expect, test } from '@playwright/test';
 import { resolve } from 'node:path';
+import { waitForStickers } from './helpers.js';
 
 const FIXTURE = resolve(process.cwd(), 'tests/fixtures/sheet-1.png');
 
 async function loadSheet(page: import('@playwright/test').Page): Promise<void> {
   await page.setInputFiles('input[type="file"]:not([accept*="zip"])', [FIXTURE]);
-  await expect(page.getByRole('heading', { name: '9個のスタンプを見つけました' })).toBeVisible({
-    timeout: 30_000,
-  });
+  await waitForStickers(page, 9);
 }
 
 /** 小さい画面で横スクロールが出ないこと。出ると操作が一気に苦しくなる。 */
@@ -287,9 +286,7 @@ test('小さい画面でも全体の長さが現実的に収まる', async ({ pa
       resolve(process.cwd(), `tests/fixtures/${name}.png`),
     ),
   );
-  await expect(page.getByRole('heading', { name: '45個のスタンプを見つけました' })).toBeVisible({
-    timeout: 90_000,
-  });
+  await waitForStickers(page, 45);
 
   const height = await page.evaluate(() => document.documentElement.scrollHeight);
   // 40個ぶんの一覧が並ぶので長くはなるが、画面20個分ぐらいには収める

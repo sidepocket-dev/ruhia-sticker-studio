@@ -3,6 +3,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 import { resolve } from 'node:path';
 import { unzipSync } from 'fflate';
+import { waitForStickers } from './helpers.js';
 
 const fixture = (name: string): string => resolve(process.cwd(), 'tests/fixtures', name);
 
@@ -12,9 +13,7 @@ test('リロードしても前回の続きから再開できる', async ({ page 
   await page.getByRole('button', { name: '16 個', exact: false }).first().click();
   await page.getByRole('button', { name: '学校用', exact: false }).click();
   await page.setInputFiles('input[type="file"]:not([accept*="zip"])', [fixture('sheet-1.png'), fixture('sheet-2.png')]);
-  await expect(page.getByRole('heading', { name: '18個のスタンプを見つけました' })).toBeVisible({
-    timeout: 30_000,
-  });
+  await waitForStickers(page, 18);
 
   // 選択を変えて、並び替えて、セリフも直す
   await page.locator('.sticker-card').first().click();
@@ -29,7 +28,7 @@ test('リロードしても前回の続きから再開できる', async ({ page 
   await expect(page.getByText('前回の続きから再開しました。', { exact: false })).toBeVisible({
     timeout: 30_000,
   });
-  await expect(page.getByRole('heading', { name: '18個のスタンプを見つけました' })).toBeVisible();
+  await waitForStickers(page, 18);
 
   // 個数・用途・並び順・選択がそのまま
   await expect(page.getByRole('button', { name: '16 個', exact: false }).first()).toHaveAttribute(
@@ -47,9 +46,7 @@ test('リロードしても前回の続きから再開できる', async ({ page 
 test('最初からやり直すと、保存した内容も消える', async ({ page }) => {
   await page.goto('/');
   await page.setInputFiles('input[type="file"]:not([accept*="zip"])', [fixture('sheet-1.png')]);
-  await expect(page.getByRole('heading', { name: '9個のスタンプを見つけました' })).toBeVisible({
-    timeout: 30_000,
-  });
+  await waitForStickers(page, 9);
   await expect(page.getByText('保存しました。', { exact: false })).toBeVisible({ timeout: 10_000 });
 
   await page.getByRole('button', { name: '最初からやり直す' }).click();
@@ -64,9 +61,7 @@ test('作業内容をファイルに保存して、読み込み直せる', async
   await page.goto('/');
   await page.getByRole('button', { name: '16 個', exact: false }).first().click();
   await page.setInputFiles('input[type="file"]:not([accept*="zip"])', [fixture('sheet-1.png'), fixture('sheet-3.png')]);
-  await expect(page.getByRole('heading', { name: '18個のスタンプを見つけました' })).toBeVisible({
-    timeout: 30_000,
-  });
+  await waitForStickers(page, 18);
   await page.getByRole('button', { name: '使いやすい順に並べる' }).click();
   const orderBefore = await page.locator('.reorder__text').allTextContents();
 
@@ -119,9 +114,7 @@ test('オフライン版でも前回の続きから再開できる', async ({ pa
 
   await page.goto(url);
   await page.setInputFiles('input[type="file"]:not([accept*="zip"])', [fixture('sheet-1.png')]);
-  await expect(page.getByRole('heading', { name: '9個のスタンプを見つけました' })).toBeVisible({
-    timeout: 30_000,
-  });
+  await waitForStickers(page, 9);
 
   // 使えない環境なら、その旨がはっきり出る
   const status = page.locator('.project__status');

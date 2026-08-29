@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test';
 import { existsSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 import { resolve } from 'node:path';
-import { trackNetworkRequests } from './helpers.js';
+import { trackNetworkRequests, waitForStickers } from './helpers.js';
 
 const FIXTURE = resolve(process.cwd(), 'tests/fixtures/sheet-a.png');
 
@@ -14,9 +14,7 @@ test('シートを読み込むと9個のスタンプが表示される', async (
   await page.goto('/');
   await page.setInputFiles('input[type="file"]', FIXTURE);
 
-  await expect(page.getByRole('heading', { name: '9個のスタンプを見つけました' })).toBeVisible({
-    timeout: 15_000,
-  });
+  await waitForStickers(page, 9);
 
   const images = page.locator('.sticker-grid .sticker-card__image');
   await expect(images).toHaveCount(9);
@@ -42,9 +40,7 @@ test('オフライン版でもシートを読み込める', async ({ page }) => 
   await page.goto(pathToFileURL(offlineHtml).href);
   await page.setInputFiles('input[type="file"]', FIXTURE);
 
-  await expect(page.getByRole('heading', { name: '9個のスタンプを見つけました' })).toBeVisible({
-    timeout: 15_000,
-  });
+  await waitForStickers(page, 9);
   await expect(page.locator('.sticker-grid .sticker-card__image')).toHaveCount(9);
   expect(externalRequests, '外部へのリクエストが発生しました').toEqual([]);
 });

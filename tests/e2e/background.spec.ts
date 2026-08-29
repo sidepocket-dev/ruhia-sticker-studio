@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { resolve } from 'node:path';
+import { waitForStickers } from './helpers.js';
 
 const fixture = (name: string): string => resolve(process.cwd(), 'tests/fixtures', name);
 const sheetInput = 'input[type="file"]:not([accept*="zip"])';
@@ -29,9 +30,7 @@ test('白背景のシートから、背景を抜いて9個取り出せる', asyn
 
   await page.getByRole('button', { name: '背景を抜いてみる' }).click();
 
-  await expect(page.getByRole('heading', { name: '9個のスタンプを見つけました' })).toBeVisible({
-    timeout: 30_000,
-  });
+  await waitForStickers(page, 9);
   await expect(page.locator('.sheet-grid, .sticker-grid .sticker-card')).toHaveCount(9);
   // 抜いたことが分かるようにする
   await expect(page.getByText('背景を抜きました', { exact: false })).toBeVisible();
@@ -43,18 +42,14 @@ test('市松模様の偽の透過も抜ける', async ({ page }) => {
   await page.setInputFiles(sheetInput, [fixture('sheet-1-checker.png')]);
   await page.getByRole('button', { name: '背景を抜いてみる' }).click();
 
-  await expect(page.getByRole('heading', { name: '9個のスタンプを見つけました' })).toBeVisible({
-    timeout: 30_000,
-  });
+  await waitForStickers(page, 9);
 });
 
 test('背景を抜いたシートから、LINE提出用ZIPまで作れる', async ({ page }) => {
   await page.goto('/');
   await page.setInputFiles(sheetInput, [fixture('sheet-1-white.png')]);
   await page.getByRole('button', { name: '背景を抜いてみる' }).click();
-  await expect(page.getByRole('heading', { name: '9個のスタンプを見つけました' })).toBeVisible({
-    timeout: 30_000,
-  });
+  await waitForStickers(page, 9);
 
   const [download] = await Promise.all([
     page.waitForEvent('download'),
@@ -68,9 +63,7 @@ test('背景を抜いた状態が、読み込み直しても保たれる', async
   await page.goto('/');
   await page.setInputFiles(sheetInput, [fixture('sheet-1-white.png')]);
   await page.getByRole('button', { name: '背景を抜いてみる' }).click();
-  await expect(page.getByRole('heading', { name: '9個のスタンプを見つけました' })).toBeVisible({
-    timeout: 30_000,
-  });
+  await waitForStickers(page, 9);
   await expect(page.getByText('保存しました。', { exact: false })).toBeVisible({ timeout: 15_000 });
 
   await page.reload();

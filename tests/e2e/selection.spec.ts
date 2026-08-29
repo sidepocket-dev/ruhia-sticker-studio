@@ -1,14 +1,13 @@
 import { expect, test } from '@playwright/test';
 import { resolve } from 'node:path';
+import { waitForStickers } from './helpers.js';
 
 const FIXTURE = resolve(process.cwd(), 'tests/fixtures/sheet-a.png');
 
 test.beforeEach(async ({ page }) => {
   await page.goto('/');
   await page.setInputFiles('input[type="file"]', FIXTURE);
-  await expect(page.getByRole('heading', { name: '9個のスタンプを見つけました' })).toBeVisible({
-    timeout: 15_000,
-  });
+  await waitForStickers(page, 9);
 });
 
 test('個数が足りないと書き出せず、あと何個かを教える', async ({ page }) => {
