@@ -38,10 +38,9 @@ jobs:
       - name: Web版とオフライン版をビルド
         run: |
           npm run build
+          # オフライン版は公開サイトに置かない（§54）。
+          # ここでビルドするのは、壊れていないことを確かめるため
           npm run build:offline
-          # オフライン版も配れるように、Web版と一緒に置く（原仕様 §54）。
-          # 名前は画面のリンクと合わせること
-          cp dist-offline/index.html dist/RUHiA-Sticker-Studio.html
 
       # 実ブラウザでの確認。抽出も書き出しもここでしか通しで見られない
       - name: ブラウザを用意
