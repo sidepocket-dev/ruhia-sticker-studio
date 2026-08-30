@@ -28,13 +28,29 @@ export function toEven(value: number): number {
 }
 
 /**
- * スタンプ画像の書き出し設計を、セット全体でまとめて決める。
+ * スタンプ画像の書き出し設計を決める。
  *
- * 1枚ずつ最大化しないのは、キャラクターの体格が崩れるため。
- * しゃがんだポーズと立ったポーズを別々に最大化すると、LINE上で同じ大きさに
- * 表示されてしまう。セット全体を共通の倍率で縮小し、一番大きいスタンプが
- * ちょうど収まるようにすることで、相対的な大小関係を保ったまま
- * 最大限大きく表示できる（PRODUCT_SPEC.md §42 / §77.8）。
+ * **1枚ずつ、上限まで大きくする。**
+ *
+ * 以前はセット全体で同じ倍率を使い、シートでの大小関係を保っていた。
+ * だが**その大小はポーズの副産物**で、作者が意図した演出ではない。
+ * お辞儀して縮こまった絵が小さくなっていただけだった。
+ *
+ * 一方で、LINEでは上限に近いほうが有利という制作者の経験則がある
+ * （小さいと一覧でぼやける／視認性でリジェクトされる）。
+ * 公式は「最大370×320。サイズはバラバラでも可」としか言っておらず、
+ * **アップロードした画像がどう表示されるかは確かめられていない。**
+ *
+ * そこで、表示の仕組みが分からなくても不利にならない側を選ぶ。
+ * 1枚ずつ上限いっぱいにすれば、実寸で並ぶ場合も枠に合わせる場合も
+ * キャラクターがいちばん大きく出る（PRODUCT_SPEC.md §77.8）。
+ *
+ * **拡大はしない。** 元の解像度を超えて引き伸ばすとぼやけるため、
+ * 倍率は 1 で頭打ちにする。実シートは1枚1200px前後あるので、
+ * 実際には全部が縮小の範囲に収まる。
+ *
+ * 縦長のキャラクターでは高さが先に頭打ちになるため、
+ * **揃うのは高さだけで、幅は絵の形しだいで散らばる。**
  */
 export function computeStickerSetLayout(
   contents: Size[],
@@ -46,14 +62,19 @@ export function computeStickerSetLayout(
 
   if (contents.length === 0) return { layouts: [], scale: 1, upscaled: false };
 
-  const largestWidth = Math.max(...contents.map((c) => c.width));
-  const largestHeight = Math.max(...contents.map((c) => c.height));
+  /** 1枚ぶんの倍率。上限に触れるまで。ただし拡大はしない */
+  const scaleFor = (content: Size): number =>
+    Math.min(availableWidth / content.width, availableHeight / content.height, 1);
 
-  // 拡大はしない。元の解像度を超えて引き伸ばすとぼやけるため。
-  const scale = Math.min(availableWidth / largestWidth, availableHeight / largestHeight, 1);
+  const layouts = contents.map((content) =>
+    fitInto(content, scaleFor(content), marginPx, maxWidth, maxHeight),
+  );
 
-  const layouts = contents.map((content) => fitInto(content, scale, marginPx, maxWidth, maxHeight));
-  const upscaled = availableWidth / largestWidth > 1 && availableHeight / largestHeight > 1;
+  // 代表値。倍率は1枚ずつ違うので、いちばん小さいもの（いちばん縮めたもの）を返す
+  const scale = Math.min(...contents.map(scaleFor));
+  // 1枚でも上限に届かなかった（元が小さすぎた）なら、引き伸ばしていない印
+  const upscaled = contents.some((content) => scaleFor(content) === 1
+    && content.width < availableWidth && content.height < availableHeight);
 
   return { layouts, scale, upscaled };
 }

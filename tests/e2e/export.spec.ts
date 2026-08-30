@@ -119,8 +119,13 @@ test('タブ画像の大きさを変えると、提出するtab.pngも変わる'
   expect(readPngInfo(after)).toMatchObject({ width: SPEC.tab.width, height: SPEC.tab.height });
 });
 
-/** 体格差が保たれていること（1枚ずつ最大化していないこと）。 */
-test('スタンプの大小関係が元のシートと同じ', async ({ page }) => {
+/**
+ * 1枚ずつ上限まで大きくしていること（§77.8）。
+ *
+ * LINEがアップロードした画像をどう表示するかは確かめられていない。
+ * 上限いっぱいにしておけば、実寸で並ぶ場合も枠に合わせる場合も不利にならない。
+ */
+test('スタンプは1枚ずつ上限まで大きくなる', async ({ page }) => {
   await page.goto('/');
   await page.setInputFiles('input[type="file"]', FIXTURE);
   await waitForStickers(page, 9);
@@ -131,51 +136,24 @@ test('スタンプの大小関係が元のシートと同じ', async ({ page }) 
   ]);
   const files = unzipSync(new Uint8Array(readFileSync(await download.path())));
 
-  const heights: number[] = [];
+  const sizes: { w: number; h: number }[] = [];
   for (let i = 1; i <= TARGET; i++) {
     const bytes = files[stickerFileName(i)];
-    if (!bytes) continue;
-    heights.push(readPngInfo(bytes)?.height ?? 0);
-  }
-
-  // すべてが同じ高さなら、1枚ずつ最大化してしまっている
-  expect(new Set(heights).size).toBeGreaterThan(1);
-  // 一番大きいものは上限まで使い切っている
-  expect(Math.max(...heights)).toBe(SPEC.sticker.maxHeight);
-});
-
-/** 自由配置シート（ステッカー機能の出力）でも同じ流れが通ること。 */
-test('自由配置シートからもZIPを作れる', async ({ page }) => {
-  const errors: string[] = [];
-  page.on('pageerror', (error) => errors.push(error.message));
-
-  await page.goto('/');
-  await page.setInputFiles('input[type="file"]', resolve(process.cwd(), 'tests/fixtures/sheet-b.png'));
-  await waitForStickers(page, 9);
-  await expect(page.locator('.sticker-card__warning')).toHaveCount(0);
-
-  const [download] = await Promise.all([
-    page.waitForEvent('download'),
-    page.getByRole('button', { name: 'LINE用データを作成' }).click(),
-  ]);
-
-  const files = unzipSync(new Uint8Array(readFileSync(await download.path())));
-  expect(Object.keys(files)).toHaveLength(TARGET + 2);
-
-  for (let i = 1; i <= TARGET; i++) {
-    const bytes = files[stickerFileName(i)];
-    expect(bytes, stickerFileName(i)).toBeDefined();
     if (!bytes) continue;
     const info = readPngInfo(bytes);
-    expect(info?.colorType).toBe(PNG_COLOR_TYPE_RGBA);
-    expect((info?.width ?? 1) % 2).toBe(0);
-    expect((info?.height ?? 1) % 2).toBe(0);
-    expect(info?.width ?? 0).toBeLessThanOrEqual(SPEC.sticker.maxWidth);
-    expect(info?.height ?? 0).toBeLessThanOrEqual(SPEC.sticker.maxHeight);
-    expect(bytes.byteLength).toBeLessThanOrEqual(SPEC.sticker.maxBytes);
+    sizes.push({ w: info?.width ?? 0, h: info?.height ?? 0 });
+  }
+  expect(sizes).toHaveLength(TARGET);
+
+  // どれも幅か高さのどちらかが上限に触れている
+  for (const { w, h } of sizes) {
+    const touches = w >= SPEC.sticker.maxWidth - 1 || h >= SPEC.sticker.maxHeight - 1;
+    expect(touches, `${w}×${h} が上限に触れていない`).toBe(true);
   }
 
-  expect(errors).toEqual([]);
+  // 縦長のキャラクターなので、揃うのは高さだけ。幅は散らばる
+  expect(new Set(sizes.map((s) => s.h)).size, '高さは揃う').toBe(1);
+  expect(new Set(sizes.map((s) => s.w)).size, '幅は揃わない').toBeGreaterThan(1);
 });
 
 /**

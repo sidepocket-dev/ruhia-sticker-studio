@@ -48,22 +48,24 @@ describe('スタンプ画像の配置', () => {
     }
   });
 
-  it('セット全体で同じ倍率を使い、体格差を保つ', () => {
-    const { layouts, scale } = computeStickerSetLayout(REAL_CONTENTS, MARGIN);
-    for (const layout of layouts) expect(layout.scale).toBe(scale);
+  it('1枚ずつ上限まで大きくする', () => {
+    // 表示の仕組みが分からないので、どちらに転んでも不利にならない側を選ぶ（§77.8）
+    const { layouts } = computeStickerSetLayout(REAL_CONTENTS, MARGIN);
+    for (const layout of layouts) {
+      const touchesWidth = layout.canvas.width >= SPEC.sticker.maxWidth - 1;
+      const touchesHeight = layout.canvas.height >= SPEC.sticker.maxHeight - 1;
+      expect(touchesWidth || touchesHeight, '上限に触れていない').toBe(true);
+    }
+  });
 
-    // 元が大きいスタンプは、出力でも大きい
-    const big = layouts[1];
-    const small = layouts[6];
-    expect(big).toBeDefined();
-    expect(small).toBeDefined();
-    if (!big || !small) return;
-    expect(big.draw.height).toBeGreaterThan(small.draw.height);
-
-    // 相対比が元のまま保たれている（丸め誤差の範囲）
-    const sourceRatio = 404 / 352;
-    const outputRatio = big.draw.height / small.draw.height;
-    expect(Math.abs(outputRatio - sourceRatio)).toBeLessThan(0.01);
+  it('縦長のキャラクターでは、高さが揃って幅は散らばる', () => {
+    // 「全部同じ大きさになる」わけではない。幅は絵の形しだい
+    const { layouts } = computeStickerSetLayout(REAL_CONTENTS, MARGIN);
+    const heights = new Set(layouts.map((l) => l.canvas.height));
+    const widths = new Set(layouts.map((l) => l.canvas.width));
+    expect(heights.size, '高さは全部同じ').toBe(1);
+    expect([...heights][0]).toBe(SPEC.sticker.maxHeight);
+    expect(widths.size, '幅は揃わない').toBeGreaterThan(1);
   });
 
   it('一番大きいスタンプが上限いっぱいまで使う', () => {
