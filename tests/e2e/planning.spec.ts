@@ -283,15 +283,15 @@ test('5枚まとめて頼むプロンプトを出せる', async ({ page }) => {
   await page.getByRole('button', { name: '文章を見る' }).click();
   const prompt = page.locator('.sheet-prompts__item textarea');
 
-  // 実機で5枚生成できた文面の要点
-  await expect(prompt).toHaveValue(/この依頼では、画像を合計5枚生成してください/);
-  await expect(prompt).toHaveValue(/1回の画像生成で5シートを表現するのではありません/);
-  await expect(prompt).toHaveValue(/- 画像5 = シート5のみ/);
-  await expect(prompt).toHaveValue(/同じシートの別バージョンを複数生成しない/);
-  await expect(prompt).toHaveValue(/「どちらがいいですか」などの確認を行わない/);
-  await expect(prompt).toHaveValue(/# シート5/);
+  // 実機で5枚とも別内容を生成できた文面の要点（§77.26）
+  await expect(prompt).toHaveValue(/ステッカーシートを5枚生成してください/);
+  await expect(prompt).toHaveValue(/「画像1」から「画像5」まで/);
+  await expect(prompt).toHaveValue(/## 画像5/);
+  await expect(prompt).toHaveValue(/5枚目の画像には、次の9種類だけを入れてください/);
+  await expect(prompt).toHaveValue(/他の画像に書かれた内容は入れないでください/);
+  await expect(prompt).toHaveValue(/左右だけでなく、上下の段の間にも幅広い隙間を設けてください/);
+  await expect(prompt).toHaveValue(/同じ内容の画像を2枚以上作らないでください/);
   await expect(prompt).toHaveValue(/1枚生成した時点で終了せず、必ず5枚すべて生成してください/);
-  await expect(prompt).toHaveValue(/45種類を1枚の画像にまとめないでください/);
 });
 
 test('個数が1シートぶんのときは、まとめて頼む選択肢を出さない', async ({ page }) => {

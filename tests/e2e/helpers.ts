@@ -1,4 +1,4 @@
-import { expect } from '@playwright/test';
+import { expect, test } from '@playwright/test';
 import type { Page } from '@playwright/test';
 
 /**
@@ -28,6 +28,12 @@ export function trackNetworkRequests(page: Page): string[] {
 export async function waitForStickers(page: Page, found: number): Promise<void> {
   const sheets = Math.ceil(found / 9);
   const budget = 20_000 + sheets * 20_000;
+
+  // 待ち時間だけ伸ばしても、テスト自体の上限（既定30秒 / test.slow() で90秒）が
+  // 先に来て落ちる。実測でそれが起きた（5枚の解析が90秒を超えた）。
+  // 予算に合わせてテストの上限も伸ばす。
+  test.setTimeout(budget + 30_000);
+
   await expect(
     page.getByRole('heading', { name: `${found}個のスタンプを見つけました` }),
     `シート${sheets}枚の解析が${budget / 1000}秒で終わらなかった`,
