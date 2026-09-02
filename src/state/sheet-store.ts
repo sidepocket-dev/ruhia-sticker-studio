@@ -211,6 +211,9 @@ function hintFor(reason: DetectFailure): string {
   switch (reason) {
     case 'no-content':
       return '絵が見当たりませんでした。中身のある画像を選んでください。';
+    case 'no-gutter':
+      // 実測：段と段がくっついたシートで起きた。9個は揃っていた（§77.25）
+      return '段と段の間に、透明な隙間が見つかりませんでした。上下のスタンプが近すぎるようです。文字や小物が上下の段にはみ出していないか確認してください。';
     case 'empty-cell':
       return '空いている場所があるようです。9個そろっているか確認してください。';
     case 'too-few-components':

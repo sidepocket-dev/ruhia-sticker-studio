@@ -13,7 +13,14 @@ import {
   rectSeparation,
   touchesEdge,
 } from './trim.js';
-import type { AlphaMask, DetectionResult, PixelBuffer, Rect, StickerRegion } from './types.js';
+import type {
+  AlphaMask,
+  AlphaProfile,
+  DetectionResult,
+  PixelBuffer,
+  Rect,
+  StickerRegion,
+} from './types.js';
 
 export interface DetectOptions {
   alphaThreshold: number;
@@ -32,7 +39,12 @@ export const DEFAULT_DETECT_OPTIONS: DetectOptions = {
 };
 
 /** 抽出できなかった理由。UIには出さず、次にどうするかを決めるために使う。 */
-export type DetectFailure = 'no-content' | 'empty-cell' | 'too-few-components';
+export type DetectFailure =
+  | 'no-content'
+  /** 行または列の間に、絵が途切れる線が1本も無い */
+  | 'no-gutter'
+  | 'empty-cell'
+  | 'too-few-components';
 
 export type DetectOutcome =
   | { ok: true; result: DetectionResult }
@@ -57,7 +69,27 @@ export function detectStickers(
     return { ok: true, result: simple };
   }
 
-  return trySmartDetection(mask, profile.totalOpaque, options);
+  const outcome = trySmartDetection(mask, profile.totalOpaque, options);
+  if (outcome.ok) return outcome;
+
+  // 「空いている場所がある」と言う前に、隙間の有無を確かめる。
+  // 実測（2026-08-31 公開前テスト）：9個そろっているのに段と段がくっついていた
+  // シートで empty-cell が返り、「9個そろっているか確認してください」と
+  // 案内していた。原因の場所が違うため、探しても見つからない。
+  if (outcome.reason === 'empty-cell' && !hasAnyGutter(mask, profile, options)) {
+    return { ok: false, reason: 'no-gutter', totalOpaquePixels: profile.totalOpaque };
+  }
+  return outcome;
+}
+
+/** 行と列のどちらかに、絵が途切れる線があるか。 */
+function hasAnyGutter(mask: AlphaMask, profile: AlphaProfile, options: DetectOptions): boolean {
+  return (
+    findGridLines(mask, profile, {
+      searchWindowRatio: options.searchWindowRatio,
+      maxContentRatio: options.maxContentRatio,
+    }) !== null
+  );
 }
 
 /** 整列シート向け。隙間が見つからなければ null を返す。 */

@@ -9,6 +9,7 @@ import {
 } from '../helpers/make-sheet.js';
 import { checkInvariants } from '../helpers/invariants.js';
 import { iou } from '../helpers/geometry.js';
+import { loadPng } from '../helpers/png.js';
 import type { StickerRegion } from '../../src/core/image/types.js';
 
 const THRESHOLD = DEFAULT_DETECT_OPTIONS.alphaThreshold;
@@ -268,5 +269,23 @@ describe('信頼度', () => {
     expect(outcome.ok).toBe(true);
     if (!outcome.ok) return;
     expect(outcome.result.regions.find((r) => r.cellIndex === 0)?.confidence).toBeLessThan(0.7);
+  });
+});
+
+/**
+ * 公開前テストで見つかった失敗例（§77.25）。
+ *
+ * 9個そろっているのに、2段目と3段目がくっついていて分割できなかった。
+ * このとき「空いている場所があるようです。9個そろっているか確認してください」と
+ * 案内していた。数え直しても原因は見つからない。
+ */
+describe('段と段がくっついたシート', () => {
+  it('隙間が無いことを理由として返す', () => {
+    const buffer = loadPng(new URL('../fixtures/sheet-touching-rows.png', import.meta.url).pathname);
+    const outcome = detectStickers(buffer);
+
+    expect(outcome.ok, '分割できてしまった（想定外）').toBe(false);
+    if (outcome.ok) return;
+    expect(outcome.reason, '「空いている場所」ではなく「隙間が無い」と言う').toBe('no-gutter');
   });
 });
